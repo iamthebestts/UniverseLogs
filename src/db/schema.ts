@@ -10,7 +10,7 @@ export const games = pgTable("games", {
 
 export const api_keys = pgTable("api_keys", {
   id: uuid("id").defaultRandom().primaryKey(),
-  key: text("key").notNull().unique(),
+  key: text("key").notNull().unique(), // hashed key
   is_active: boolean("is_active").default(true).notNull(),
   universe_id: bigint("universe_id", { mode: "number" }).references(() => games.universe_id).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),

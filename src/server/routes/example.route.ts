@@ -5,4 +5,6 @@ export default function registerExampleRoutes(app: Elysia) {
   app
     .get("/health", () => ({ status: "ok" }))
     .get("/ping", () => ({ pong: true }));
+
+  return "api";
 }

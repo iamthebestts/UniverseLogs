@@ -1,3 +1,4 @@
+import { getAuthStrategy } from "./auth/strategies";
 import { edenTreaty } from "@elysiajs/eden";
 import chalk from "chalk";
 import { Elysia } from "elysia";
@@ -10,7 +11,7 @@ const ROUTES_DIR = join(import.meta.dir, "routes");
 const isRouteFile = (file: string) =>
   file.endsWith(".route.ts") || file.endsWith(".route.js");
 
-const createApp = () => new Elysia({ prefix: "/api" });
+const createApp = () => new Elysia();
 
 export type App = ReturnType<typeof createApp>;
 
@@ -43,25 +44,64 @@ const loadRoutes = async (app: App) => {
       console.log(chalk.yellow(`[routes] aviso: ${filePath} não exporta função default`));
       continue;
     }
+    // Record registrations made by the module on a proxy
+    const recorded: Array<{ method: string; path: string; handler: any; opts?: any }> = [];
 
-    const before = (app as any).routes?.length ?? 0;
-    register(app);
-    const afterRoutes = ((app as any).routes ?? []) as any[];
+    const proxy = {
+      get: (p: string, h: any, opts?: any) => {
+        recorded.push({ method: "GET", path: p, handler: h, opts });
+        return proxy;
+      },
+      post: (p: string, h: any, opts?: any) => {
+        recorded.push({ method: "POST", path: p, handler: h, opts });
+        return proxy;
+      },
+      put: (p: string, h: any, opts?: any) => {
+        recorded.push({ method: "PUT", path: p, handler: h, opts });
+        return proxy;
+      },
+      patch: (p: string, h: any, opts?: any) => {
+        recorded.push({ method: "PATCH", path: p, handler: h, opts });
+        return proxy;
+      },
+      delete: (p: string, h: any, opts?: any) => {
+        recorded.push({ method: "DELETE", path: p, handler: h, opts });
+        return proxy;
+      },
+      use: () => proxy,
+    } as any;
 
-    for (let i = before; i < afterRoutes.length; i += 1) {
-      const r: any = afterRoutes[i];
-      const prefix = (app as any).config?.prefix ?? "";
-      const path = (r.path ?? "").toString();
-      const methodRaw = r.method ?? r.methods ?? "";
-      const method = String(methodRaw).toUpperCase();
+    const routeType = (await Promise.resolve(register(proxy))) as ("api" | "internal" | undefined);
 
-      let fullPath = path.startsWith(prefix) ? path : `${prefix}${path}`;
+    const type = routeType === "internal" ? "internal" : "api";
 
-      if (prefix && fullPath.startsWith(prefix + prefix)) {
-        fullPath = fullPath.replace(prefix + prefix, prefix);
-      }
+    const prefix = type === "internal" ? "/internal" : "/api";
 
-      console.log(chalk.green(`[route] ${method} ${fullPath}`));
+    const strategy = getAuthStrategy(type);
+
+    const wrapWithAuth = (handler: any) => {
+      return async (ctx: any) => {
+        // Extract headers from Elysia context
+        const headers: Record<string, string | string[] | undefined> = {};
+        ctx.request.headers.forEach((value: string, key: string) => {
+          headers[key.toLowerCase()] = value;
+        });
+
+        const result = await strategy.validate({ headers, type });
+        if (!result.valid) {
+          return { status: 401, error: result.error };
+        }
+
+        return handler(ctx);
+      };
+    };
+
+    for (const r of recorded) {
+      const fullPath = r.path.startsWith(prefix) ? r.path : `${prefix}${r.path}`;
+
+      const method = r.method.toLowerCase();
+      (app as any)[method](fullPath, wrapWithAuth(r.handler), r.opts);
+      console.log(chalk.green(`[route] ${r.method} ${fullPath} (${type})`));
     }
   }
 };

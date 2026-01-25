@@ -9,6 +9,9 @@ export const env = validateEnv(
         // API
         PORT: z.coerce.number().default(3000),
 
+        // Keys
+        MASTER_KEY: z.string("Master key is required").min(1),
+
         // OTHERS
         NODE_ENV: z.enum(["dev", "prod"]).default("dev"),
     }),
