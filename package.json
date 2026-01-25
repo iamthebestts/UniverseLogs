@@ -1,16 +1,22 @@
 {
   "name": "logs-api",
+  "description": "Serviço de ingestão e consulta de logs estruturados com isolamento multi-tenant por UniverseId, voltado para jogos Roblox e aplicações distribuídas.",
+  "version": "1.0.50",
   "module": "src/index.ts",
   "main": "src/index.ts",
-  "type": "module",
   "private": true,
   "scripts": {
-    "start": "bun run ."
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "bun run --watch --env-file .env.development src/index.ts",
+    "start": "bun run --env-file .env.production ."
+  },
+  "dependencies": {
+    "@elysiajs/eden": "latest",
+    "chalk": "^5.6.2",
+    "elysia": "latest",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
+    "bun-types": "latest"
   }
 }
