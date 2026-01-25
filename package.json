@@ -6,7 +6,10 @@
   "main": "src/index.ts",
   "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "test:watch": "vitest --watch",
     "dev": "bun run --watch --env-file .env.development src/index.ts",
     "start": "bun run --env-file .env ."
   },
@@ -21,7 +24,10 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@vitest/ui": "^1.0.0",
+    "@vitest/coverage-v8": "^1.0.0",
     "bun-types": "latest",
-    "drizzle-kit": "^0.31.8"
+    "drizzle-kit": "^0.31.8",
+    "vitest": "^1.0.0"
   }
 }

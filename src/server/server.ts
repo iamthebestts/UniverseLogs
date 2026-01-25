@@ -7,8 +7,12 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { getAuthStrategy } from "./auth/strategies";
 import type { AuthResult } from "./auth/types";
+import { setupErrorHandling } from "./handlers/error-handler";
 
-const ROUTES_DIR = join(import.meta.dir, "routes");
+import { fileURLToPath } from "node:url";
+
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
+const ROUTES_DIR = join(__dirname, "routes");
 
 const isRouteFile = (file: string) =>
   file.endsWith(".route.ts") || file.endsWith(".route.js");
@@ -223,16 +227,23 @@ const serviceMetaPlugin = (app: App) =>
     version: process.env.npm_package_version ?? "dev",
   });
 
-export const startServer = async () => {
+export const buildApp = async () => {
   const app = createApp();
 
   app.use(serviceMetaPlugin);
+  setupErrorHandling(app);
 
   await loadRoutes(app);
 
   if (((app as any).routes ?? []).length === 0) {
     console.log(chalk.yellow("[routes] Nenhuma rota registrada — endpoints retornarão 404"));
   }
+
+  return app;
+};
+
+export const startServer = async () => {
+  const app = await buildApp();
 
   const port = env.PORT;
   app.listen(port, () => {

@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "API Dev",
+      "type": "shell",
+      "command": "bun run --watch --env-file .env.development src/index.ts",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Vitest Watch",
+      "type": "shell",
+      "command": "bun run test:watch",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Vitest UI",
+      "type": "shell",
+      "command": "bun run test:ui",
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}
