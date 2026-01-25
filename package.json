@@ -10,6 +10,7 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:watch": "vitest --watch",
+    "migrate": "bunx drizzle-kit migrate --config ./drizzle.config.ts",
     "dev": "bun run --watch --env-file .env.development src/index.ts",
     "start": "bun run --env-file .env ."
   },

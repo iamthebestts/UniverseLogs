@@ -12,6 +12,7 @@ export interface AuthContext {
 export interface AuthResult {
   valid: boolean;
   error?: string;
+  universeId?: bigint;
 }
 
 export interface AuthStrategy {

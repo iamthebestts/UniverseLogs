@@ -35,6 +35,38 @@ type RecordedRoute = {
   opts?: RouteOptionsWithAuth;
 };
 
+/**
+ * Custom route handler type that supports authRequired option and universeId context.
+ * This is the type used by the route proxy, not the real Elysia app.
+ */
+type RouteHandler<T = unknown> = (ctx: {
+  body: T;
+  params: Record<string, string>;
+  query: Record<string, string | undefined>;
+  request: Request;
+  set: { status: number };
+  universeId: bigint;
+}) => unknown | Promise<unknown>;
+
+type RouteMethod = <T = unknown>(
+  path: string,
+  handler: RouteHandler<T>,
+  options?: RouteOptionsWithAuth
+) => RouteApp;
+
+/**
+ * Type representing the route registration proxy.
+ * Route files receive this proxy (not the real Elysia app) which supports authRequired.
+ */
+export type RouteApp = {
+  get: RouteMethod;
+  post: RouteMethod;
+  put: RouteMethod;
+  patch: RouteMethod;
+  delete: RouteMethod;
+  use: (plugin: unknown) => RouteApp;
+};
+
 const MAX_HEADER_VALUE_LENGTH = 2048;
 
 const normalizeHeaderValue = (value: string | null): string | undefined => {
@@ -150,12 +182,19 @@ const loadRoutes = async (app: App) => {
             if (!authResult.valid) {
               return handleUnauthorized(authResult.error);
             }
+            if (authResult.universeId) {
+              (ctx as any).universeId = authResult.universeId;
+            }
             return handler(ctx);
           });
         }
 
         if (!result.valid) {
           return handleUnauthorized(result.error);
+        }
+
+        if (result.universeId) {
+          (ctx as any).universeId = result.universeId;
         }
 
         return handler(ctx);

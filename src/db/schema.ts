@@ -28,6 +28,7 @@ export const logs = pgTable(
     level: logLevel("level").notNull(),
     message: text("message").notNull(),
     metadata: jsonb("metadata").default({}),
+    topic: text("topic"),
     timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow(),
   },
   (table) => ({

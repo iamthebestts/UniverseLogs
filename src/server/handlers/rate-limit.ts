@@ -2,7 +2,7 @@ import { MemoryCache } from "@/core/cache";
 import type { Handler } from "elysia";
 
 /**
- * Rate limit statistics for monitoring and debugging
+ * Estatísticas de limite de taxa para monitoramento e depuração
  */
 export interface RateLimitStats {
   hits: number;
@@ -11,21 +11,21 @@ export interface RateLimitStats {
 }
 
 /**
- * Configuration options for rate limiting
+ * Opções de configuração para limite de taxa
  */
 export interface RateLimitOptions {
-  /** Maximum number of requests allowed within the time window */
+  /** Número máximo de solicitações permitidas dentro da janela de tempo */
   maxRequests: number;
-  /** Time window in milliseconds */
+  /** Janela de tempo em milissegundos */
   windowMs: number;
-  /** Optional: Enable statistics tracking (default: true) */
+  /** Opcional: Habilitar rastreamento de estatísticas (padrão: true) */
   trackStats?: boolean;
-  /** Optional: Custom key extraction function (defaults to API key from header) */
+  /** Opcional: Função personalizada de extração de chave (padrão para chave de API do cabeçalho) */
   keyExtractor?: (ctx: any) => string | null;
 }
 
 /**
- * Rate limit entry stored in cache
+ * Entrada de limite de taxa armazenada no cache
  */
 interface RateLimitEntry {
   count: number;
@@ -33,19 +33,19 @@ interface RateLimitEntry {
 }
 
 /**
- * Global cache instance for storing rate limit data
- * Using a single cache instance with appropriate TTL for efficient memory usage
+ * Instância global de cache para armazenar dados de limite de taxa
+ * Usando uma única instância de cache com TTL apropriado para uso eficiente de memória
  */
 const rateLimitCache = new MemoryCache<RateLimitEntry>(
-  5 * 60 * 1000, // 5 minutes default TTL
-  10000, // Support up to 10k concurrent tracked keys
-  true, // Enable cleanup timer
-  5, // Evict 5 items at a time when full
+  5 * 60 * 1000, // 5 minutos de TTL padrão
+  10000, // Suporte até 10k chaves simultâneas rastreadas
+  true, // Habilitar timer de limpeza
+  5, // Evitar 5 itens por vez quando cheio
 );
 
 /**
- * Global statistics tracker for all rate limit handlers
- * Tracks hits and blocks across all instances
+ * Rastreador global de estatísticas para todos os manipuladores de limite de taxa
+ * Rastreia hits e blocks em todas as instâncias
  */
 const globalStats = {
   hits: 0,
@@ -53,21 +53,21 @@ const globalStats = {
 };
 
 /**
- * Creates a rate limit handler for Elysia routes
- * Uses MemoryCache (L1) for efficient local storage
+ * Cria um manipulador de limite de taxa para rotas Elysia
+ * Usa MemoryCache (L1) para armazenamento local eficiente
  *
- * @param options - Rate limit configuration
- * @returns Elysia handler function that enforces rate limits
+ * @param options - Configuração do limite de taxa
+ * @returns Função manipuladora do Elysia que impõe limites de taxa
  *
  * @example
  * ```typescript
- * // Apply to a route
+ * // Aplicar a uma rota
  * app.post("/api/logs", {
  *   beforeHandle: rateLimitHandler({ maxRequests: 100, windowMs: 60000 }),
  *   handler: async (ctx) => { ... }
  * })
  *
- * // Different limit per route
+ * // Limite diferente por rota
  * app.get("/api/expensive", {
  *   beforeHandle: rateLimitHandler({ maxRequests: 10, windowMs: 60000 }),
  *   handler: async (ctx) => { ... }
@@ -177,11 +177,11 @@ export function rateLimitHandler(options: RateLimitOptions): Handler {
 }
 
 /**
- * Extracts the authentication key from the request context
- * Checks both x-api-key and x-master-key headers
+ * Extrai a chave de autenticação do contexto da solicitação
+ * Verifica os cabeçalhos x-api-key e x-master-key
  *
- * @param ctx - Elysia request context
- * @returns The authentication key or null if not found
+ * @param ctx - Contexto da solicitação Elysia
+ * @returns A chave de autenticação ou null se não encontrada
  */
 function extractAuthKey(ctx: any): string | null {
   try {
@@ -207,10 +207,10 @@ function extractAuthKey(ctx: any): string | null {
 }
 
 /**
- * Resets the rate limit counter for a specific API key
- * Useful for admin operations or testing
+ * Redefine o contador de limite de taxa para uma chave de API específica
+ * Útil para operações administrativas ou testes
  *
- * @param authKey - The authentication key to reset
+ * @param authKey - A chave de autenticação a ser redefinida
  */
 export function resetRateLimit(authKey: string): void {
   const cacheKey = `ratelimit:${authKey}`;
@@ -218,8 +218,8 @@ export function resetRateLimit(authKey: string): void {
 }
 
 /**
- * Resets all rate limit counters
- * Use with caution - clears all stored rate limit data
+ * Redefine todos os contadores de limite de taxa
+ * Use com cautela - limpa todos os dados de limite de taxa armazenados
  */
 export function resetAllRateLimits(): void {
   // We'll create a new cache instance to clear everything
@@ -228,9 +228,9 @@ export function resetAllRateLimits(): void {
 }
 
 /**
- * Gets rate limit statistics for the current session
+ * Obtém estatísticas de limite de taxa para a sessão atual
  *
- * @returns Object containing hits, blocks, and cache statistics
+ * @returns Objeto contendo hits, blocks e estatísticas de cache
  */
 export function getRateLimitStats(): RateLimitStats & { cacheStats: any } {
   return {
@@ -242,7 +242,7 @@ export function getRateLimitStats(): RateLimitStats & { cacheStats: any } {
 }
 
 /**
- * Clears all rate limit data and statistics
+ * Limpa todos os dados de limite de taxa e estatísticas
  */
 export function clearRateLimitData(): void {
   resetAllRateLimits();
@@ -251,16 +251,16 @@ export function clearRateLimitData(): void {
 }
 
 /**
- * Creates a rate limit handler with a custom key extractor
- * Useful when you need to rate limit by something other than API key
- * (e.g., by IP address, user ID, or custom identifier)
+ * Cria um manipulador de limite de taxa com um extrator de chave personalizado
+ * Útil quando você precisa limitar a taxa por algo diferente da chave de API
+ * (ex.: por endereço IP, ID de usuário ou identificador personalizado)
  *
- * @param options - Rate limit configuration with custom keyExtractor
- * @returns Elysia handler function
+ * @param options - Configuração de limite de taxa com keyExtractor personalizado
+ * @returns Função manipuladora do Elysia
  *
  * @example
  * ```typescript
- * // Rate limit by IP address
+ * // Limite de taxa baseado em IP
  * const ipBasedLimit = rateLimitHandler({
  *   maxRequests: 100,
  *   windowMs: 60000,

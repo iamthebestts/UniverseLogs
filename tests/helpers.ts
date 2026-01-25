@@ -2,7 +2,7 @@
  * Test utilities and helpers for vitest
  */
 
-import { beforeEach, afterEach, vi, expect } from "vitest";
+import { expect, vi } from "vitest";
 
 /**
  * Mock context factory for creating Elysia-like contexts

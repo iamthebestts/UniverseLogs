@@ -1,5 +1,5 @@
 import { db } from "@/db/client";
-import { api_keys as apiKeys } from "@/db/schema";
+import { api_keys as apiKeys, games } from "@/db/schema";
 import { and, count, eq } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
 
@@ -23,6 +23,20 @@ function hashKey(key: string): string {
 export async function createApiKey(universeId: bigint): Promise<{ key: string }> {
   const key = generateKey();
   const hash = hashKey(key);
+
+  const [game] = await db
+    .select()
+    .from(games)
+    .where(eq(games.universe_id, universeId))
+    .limit(1);
+
+  if (!game) {
+    // Cria o tenant se não existir; usa nome genérico para evitar bloquear a operação.
+    await db.insert(games).values({
+      universe_id: universeId,
+      name: "Auto-created universe",
+    }).onConflictDoNothing();
+  }
 
   await db.insert(apiKeys).values({
     universe_id: universeId,

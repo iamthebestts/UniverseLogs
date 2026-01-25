@@ -1,21 +1,20 @@
 // @ts-nocheck
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { env } from "@/env";
 import {
-  ErrorCode,
   ApiError,
-  ValidationError,
   AuthError,
   AuthorizationError,
-  RateLimitError,
-  NotFoundError,
   ConflictError,
   DatabaseError,
+  ErrorCode,
+  NotFoundError,
+  RateLimitError,
   ServiceUnavailableError,
+  ValidationError,
   isApiError,
   type ApiErrorData,
   type ErrorLogContext,
 } from "@/server/errors/types";
+import { describe, expect, it } from "vitest";
 
 describe("Error Handler Types", () => {
   describe("ErrorCode Enum", () => {

@@ -16,8 +16,8 @@ class ApiKeyStrategy implements AuthStrategy {
       return { valid: false, error: "Missing API key" };
     }
     try {
-      await validateApiKey(key);
-      return { valid: true };
+      const { universeId } = await validateApiKey(key);
+      return { valid: true, universeId };
     } catch {
       return { valid: false, error: "Invalid API key" };
     }

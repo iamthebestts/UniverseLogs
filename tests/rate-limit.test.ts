@@ -1,14 +1,11 @@
 // @ts-nocheck
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
-  rateLimitHandler,
-  resetRateLimit,
-  resetAllRateLimits,
-  getRateLimitStats,
   clearRateLimitData,
-  type RateLimitOptions,
+  getRateLimitStats,
+  rateLimitHandler,
+  resetAllRateLimits
 } from "@/server/handlers/rate-limit";
-import type { RateLimitStats } from "@/server/handlers/rate-limit";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("Rate Limit Handler", () => {
   beforeEach(() => {
