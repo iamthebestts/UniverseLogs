@@ -3,6 +3,6 @@
     "tsconfig.json": "tsconfig.*.json",
     "package.json": "*lock.json, *.lock, *lock.yaml, *.lockb, *config.json, *config.ts, .eslintrc.json, .gitignore, .discloudignore, biome.json, .nvmrc",
     ".env.local": ".env*",
-    ".env": ".env*",
+    ".env": ".env*"
   }
 }

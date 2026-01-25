@@ -1,10 +1,18 @@
 import { Elysia } from "elysia";
+import { rateLimitHandler } from "../handlers";
 
-// Each route module exports a default function receiving the Elysia instance
 export default function registerExampleRoutes(app: Elysia) {
+  const globalRateLimit = rateLimitHandler({ maxRequests: 10, windowMs: 60_000 });
+
+
   app
-    .get("/health", () => ({ status: "ok" }))
-    .get("/ping", () => ({ pong: true }));
+    .get("/health", () => ({ status: "ok" }), {
+      beforeHandle: globalRateLimit,
+    })
+    .get("/ping", () => ({ pong: true }), {
+      beforeHandle: globalRateLimit,
+    });
+
 
   return "api";
 }

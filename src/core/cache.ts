@@ -13,12 +13,8 @@ type LRUNode = {
 }
 
 /**
- * In-memory cache with TTL support, LRU eviction, and size limits.
- *
- * Purpose: Local (L1) cache for hot data in a single process.
- * Not suitable as a standalone cache layer for distributed systems.
- * For distributed caching needs (session sharing, distributed state),
- * use Redis or similar backing store.
+ * High-performance in-memory cache with TTL, LRU eviction and size limits.
+ * Designed as a high-performance local (L1) cache, complementary to Redis.
  */
 export class MemoryCache<T> {
     private cache = new Map<string, CacheEntry<T>>()
@@ -27,6 +23,7 @@ export class MemoryCache<T> {
     private tail: string | null = null
     private cleanupTimer: ReturnType<typeof setTimeout> | null = null
     private pendingPromises = new Map<string, Promise<T>>()
+    private insertCount = 0
     private stats_data = {
         hits: 0,
         misses: 0,
@@ -37,16 +34,24 @@ export class MemoryCache<T> {
     /**
      * Creates a new MemoryCache instance.
      * @param defaultTTL - Default time-to-live in milliseconds (default: 60000)
-     * @param maxSize - Maximum number of entries (default: 1000)
+     * @param maxSize - Maximum number of entries (must be > 0, default: 1000)
      * @param enableCleanupTimer - Enable automatic cleanup timer (default: true)
      * @param evictionBatchSize - Number of entries to evict at once when full (default: 1)
+     * @throws Error if maxSize is <= 0
      */
     constructor(
         private defaultTTL = 60_000,
         private maxSize = 1000,
         private enableCleanupTimer = true,
         private evictionBatchSize = 1,
-    ) {}
+    ) {
+        // Enforce maxSize > 0 to prevent unbounded cache growth
+        if (maxSize <= 0) {
+            throw new Error(
+                `maxSize must be greater than 0, got ${maxSize}. Cache requires at least 1 entry capacity.`,
+            )
+        }
+    }
 
     /**
      * Sets a value in the cache with optional TTL.
@@ -62,13 +67,23 @@ export class MemoryCache<T> {
             this.cache.set(key, { value, expiresAt })
             this.moveToHead(key)
         } else {
-            if (this.cache.size >= this.maxSize) {
+            this.insertCount++
+            // Periodic cleanup every 50 inserts to remove expired items proactively
+            if (this.insertCount % 50 === 0) {
                 this.evictExpired()
+            }
 
-                if (this.cache.size >= this.maxSize) {
-                    this.evictLRU()
+            // Enforce maxSize strictly
+            if (this.cache.size >= this.maxSize) {
+                this.evictExpired() // Try to make space by removing expired first
+
+                // If still full, evict LRU until we are below limit
+                while (this.cache.size >= this.maxSize) {
+                    const evicted = this.evictLRU()
+                    if (evicted === 0) break // Safety break
                 }
             }
+
             this.cache.set(key, { value, expiresAt })
             this.addToHead(key)
         }
@@ -98,12 +113,9 @@ export class MemoryCache<T> {
      * @returns The cached value or null if not found/expired
      */
     get(key: string): T | null {
-        // Probabilistic cleanup of expired entries when automatic cleanup is disabled.
-        // Trade-off: Lower memory overhead vs. potential accumulation of stale entries
-        // between occasional get() calls. Not recommended for high-volume scenarios
-        // or batch inserts with enableCleanupTimer=false.
+        // Cleanup expired entries if timer is disabled
         if (!this.enableCleanupTimer && Math.random() < 0.1) {
-            // 10% chance to trigger cleanup on each get()
+            // 10% chance to cleanup on each get
             this.cleanupExpired()
         }
 
@@ -140,18 +152,12 @@ export class MemoryCache<T> {
 
     /**
      * Checks if a key exists and is not expired.
-     *
-     * IMPORTANT: This is a passive check that does NOT update LRU order
-     * or affect cache statistics. Use this when you only want to verify
-     * existence without treating it as a cache access.
-     *
-     * If you want to access the value (and update LRU), use get() instead.
-     *
+     * Note: This method updates LRU order.
      * @param key - The cache key
      * @returns True if key exists and is valid
      */
     has(key: string): boolean {
-        return this.peek(key)
+        return this.get(key) !== null
     }
 
     /**
@@ -264,7 +270,19 @@ export class MemoryCache<T> {
 
         const promise = (async () => {
             try {
-                const value = await factory()
+                // Wrap factory in a race with timeout to ensure cleanup prevents memory leak
+                const factoryPromise = Promise.resolve(factory())
+                const timeoutPromise = new Promise<never>((_, reject) =>
+                    setTimeout(
+                        () => reject(new Error("Cache factory timeout")),
+                        30000,
+                    ),
+                )
+
+                const value = await Promise.race([
+                    factoryPromise,
+                    timeoutPromise,
+                ])
                 this.set(key, value, options)
                 return value
             } finally {
@@ -273,6 +291,10 @@ export class MemoryCache<T> {
         })()
 
         this.pendingPromises.set(key, promise)
+        // Ensure we catch the error if the caller doesn't, to prevent unhandled rejection
+        // associated with the stored promise if the caller ignores it.
+        promise.catch(() => { })
+
         return promise
     }
 
@@ -326,20 +348,9 @@ export class MemoryCache<T> {
     }
 
     /**
-     * Increment a numeric value.
-     *
-     * IMPORTANT: This is NOT an atomic operation in async/distributed contexts.
-     * Atomicity is only guaranteed within a single Node.js event loop iteration.
-     *
-     * Mental model: Single-threaded execution within event loop.
-     * If called in a Promise chain or with await, race conditions are possible
-     * if the value is accessed by concurrent operations.
-     *
-     * For distributed atomicity, use an external store (Redis INCR, database).
-     *
+     * Increment a numeric value (atomic operation)
      * @param key - Cache key
      * @param delta - Amount to increment (default: 1)
-     * @returns New value or null if key not found or value is not numeric
      */
     increment(key: string, delta = 1): number | null {
         const value = this.get(key)
@@ -358,55 +369,49 @@ export class MemoryCache<T> {
     }
 
     /**
-     * Decrement a numeric value.
-     *
-     * IMPORTANT: This is NOT an atomic operation in async/distributed contexts.
-     * See increment() documentation for detailed atomicity guarantees and limitations.
-     *
+     * Decrement a numeric value (atomic operation)
      * @param key - Cache key
      * @param delta - Amount to decrement (default: 1)
-     * @returns New value or null if key not found or value is not numeric
      */
     decrement(key: string, delta = 1): number | null {
         return this.increment(key, -delta)
     }
 
     /**
-     * Finds cache keys matching a pattern.
-     *
-     * COST: O(n) where n = cache size. Scans every key in memory.
-     *
-     * PRODUCTION WARNING: Dangerous on large caches (>10k entries).
-     * Blocks event loop and causes latency spikes. Use only for:
-     * - Debugging/development
-     * - Caches guaranteed to stay small (<100 entries)
-     * - Low-frequency operations (not in request handlers)
-     *
-     * SAFER ALTERNATIVE: Use prefix-based key naming:
-     * - Instead: scan("user_.*")
-     * - Better: Maintain separate Map<userId, Map<string, T>> or
-     *          use predictable key patterns with direct access
-     *
-     * @param pattern - RegExp or string pattern (string supports wildcards *)
-     * @returns Array of matching keys (does not update LRU)
+     * Checks if cache contains any entries matching a pattern
+     * WARNING: O(n) operation - use sparingly on large caches
+     * @param pattern - RegExp or string pattern (supports wildcards *)
      */
     scan(pattern: string | RegExp): string[] {
-        const regex =
-            typeof pattern === "string"
-                ? new RegExp(`^${pattern.replace(/\*/g, ".*")}$`)
-                : pattern
+        const MAX_PATTERN_LENGTH = 256
+        const escapeRegExp = (value: string) =>
+            value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
-        return this.keys().filter((key) => regex.test(key))
+        let regex: RegExp | null = null
+
+        try {
+            if (typeof pattern === "string") {
+                if (pattern.length > MAX_PATTERN_LENGTH) return []
+                const escaped = escapeRegExp(pattern).replace(/\\\*/g, ".*")
+                regex = new RegExp(`^${escaped}$`)
+            } else {
+                if (pattern.source.length > MAX_PATTERN_LENGTH) return []
+                regex = pattern
+            }
+        } catch {
+            return []
+        }
+
+        try {
+            return this.keys().filter((key) => regex!.test(key))
+        } catch {
+            return []
+        }
     }
 
     /**
-     * Deletes all keys matching a pattern.
-     *
-     * COST: O(n) - inherits scan() complexity. Same production warnings apply.
-     * Use with caution on large caches.
-     *
+     * Deletes all keys matching a pattern
      * @param pattern - RegExp or string pattern
-     * @returns Number of keys deleted
      */
     deletePattern(pattern: string | RegExp): number {
         const keys = this.scan(pattern)
@@ -423,6 +428,7 @@ export class MemoryCache<T> {
         this.pendingPromises.clear()
         this.head = null
         this.tail = null
+        this.insertCount = 0
         if (this.cleanupTimer) {
             clearTimeout(this.cleanupTimer)
             this.cleanupTimer = null
@@ -550,10 +556,10 @@ export class MemoryCache<T> {
      */
     private evictLRU(): number {
         let evicted = 0
-        const toEvict = Math.min(
-            this.evictionBatchSize,
-            this.cache.size - this.maxSize + 1,
-        )
+        const itemsToEvict = Math.max(1, this.cache.size - this.maxSize + 1)
+        const batch = Math.max(this.evictionBatchSize, itemsToEvict)
+
+        const toEvict = Math.min(batch, this.cache.size)
 
         for (let i = 0; i < toEvict && this.tail; i++) {
             const tailKey = this.tail

@@ -17,10 +17,10 @@ function hashKey(key: string): string {
 /**
  * Cria uma chave de API para o ID do universo fornecido.
  * Gera uma chave, calcula seu hash e a insere no banco de dados.
- * @param universeId - O ID do universo para o qual a chave de API será criada.
+ * @param universeId - O ID do universo para o qual a chave de API será criada (bigint).
  * @returns Uma promessa que resolve para um objeto contendo a chave gerada.
  */
-export async function createApiKey(universeId: number): Promise<{ key: string }> {
+export async function createApiKey(universeId: bigint): Promise<{ key: string }> {
   const key = generateKey();
   const hash = hashKey(key);
 
@@ -39,14 +39,15 @@ export async function createApiKey(universeId: number): Promise<{ key: string }>
 /**
  * Valida uma chave de API fornecida, verificando se ela existe e está ativa no banco de dados.
  * Se válida, atualiza o campo `last_used_at` e retorna o ID do universo associado.
- * Caso contrário, retorna `null`.
+ * Caso contrário, lança um Error.
  *
  * @param key - A chave de API a ser validada.
- * @returns Um objeto contendo o `universeId` se a chave for válida, ou `null` se inválida.
+ * @returns Um objeto contendo o `universeId` se a chave for válida.
+ * @throws Error quando a chave de API é inválida ou revogada.
  */
 export async function validateApiKey(
   key: string
-): Promise<{ universeId: number }> {
+): Promise<{ universeId: bigint }> {
   const hash = hashKey(key);
 
   const [record] = await db
@@ -127,17 +128,13 @@ export type ApiKeyMeta = {
 /**
  * Lista as chaves de API. Se universeId for fornecido, lista as chaves para esse universo.
  * Caso contrário, lista as chaves de todos os universos, sem incluir o hash de nenhuma chave.
- * @param universeId - Opcional: O ID do universo para o qual listar as chaves de API.
+ * @param universeId - Opcional: O ID do universo (bigint) para o qual listar as chaves de API.
  * @returns Uma promessa que resolve para uma lista de objetos com metadados das chaves.
  */
-export async function listApiKeys(universeId?: number): Promise<Array<ApiKeyMeta>> {
-  const query = db
-    .select()
-    .from(apiKeys);
-
-  if (universeId !== undefined) {
-    query.where(eq(apiKeys.universe_id, universeId));
-  }
+export async function listApiKeys(universeId?: bigint): Promise<Array<ApiKeyMeta>> {
+  const query = universeId !== undefined
+    ? db.select().from(apiKeys).where(eq(apiKeys.universe_id, universeId))
+    : db.select().from(apiKeys);
 
   const records = await query;
 

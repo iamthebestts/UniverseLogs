@@ -1,10 +1,12 @@
-import { getAuthStrategy } from "./auth/strategies";
+import { env } from "@/env";
 import { edenTreaty } from "@elysiajs/eden";
 import chalk from "chalk";
 import { Elysia } from "elysia";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { getAuthStrategy } from "./auth/strategies";
+import type { AuthResult } from "./auth/types";
 
 const ROUTES_DIR = join(import.meta.dir, "routes");
 
@@ -16,6 +18,32 @@ const createApp = () => new Elysia();
 export type App = ReturnType<typeof createApp>;
 
 type RouteRegister = (app: App) => void | Elysia;
+
+type RouteOptionsWithAuth = {
+  authRequired?: boolean;
+  [key: string]: unknown;
+};
+
+type RecordedRoute = {
+  method: string;
+  path: string;
+  handlerOrOptions: unknown;
+  opts?: RouteOptionsWithAuth;
+};
+
+const MAX_HEADER_VALUE_LENGTH = 2048;
+
+const normalizeHeaderValue = (value: string | null): string | undefined => {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > MAX_HEADER_VALUE_LENGTH) return undefined;
+  for (let i = 0; i < trimmed.length; i += 1) {
+    const code = trimmed.charCodeAt(i);
+    if (code <= 31 || code === 127) return undefined;
+  }
+  return trimmed;
+};
 
 const loadRoutes = async (app: App) => {
   let files: string[];
@@ -32,6 +60,11 @@ const loadRoutes = async (app: App) => {
     console.log(chalk.yellow("[routes] Nenhum arquivo .route encontrado"));
   }
 
+  const authEnabled = env.USE_AUTH === true;
+  console.log(
+    chalk.blue(`[auth] autenticação global ${authEnabled ? "ATIVADA" : "DESATIVADA"}`)
+  );
+
   for (const file of routeFiles) {
     const filePath = join(ROUTES_DIR, file);
     console.log(chalk.blue(`[routes] carregando ${filePath}`));
@@ -45,27 +78,27 @@ const loadRoutes = async (app: App) => {
       continue;
     }
     // Record registrations made by the module on a proxy
-    const recorded: Array<{ method: string; path: string; handler: any; opts?: any }> = [];
+    const recorded: RecordedRoute[] = [];
 
     const proxy = {
-      get: (p: string, h: any, opts?: any) => {
-        recorded.push({ method: "GET", path: p, handler: h, opts });
+      get: (p: string, handlerOrOptions: unknown, opts?: RouteOptionsWithAuth) => {
+        recorded.push({ method: "GET", path: p, handlerOrOptions, opts });
         return proxy;
       },
-      post: (p: string, h: any, opts?: any) => {
-        recorded.push({ method: "POST", path: p, handler: h, opts });
+      post: (p: string, handlerOrOptions: unknown, opts?: RouteOptionsWithAuth) => {
+        recorded.push({ method: "POST", path: p, handlerOrOptions, opts });
         return proxy;
       },
-      put: (p: string, h: any, opts?: any) => {
-        recorded.push({ method: "PUT", path: p, handler: h, opts });
+      put: (p: string, handlerOrOptions: unknown, opts?: RouteOptionsWithAuth) => {
+        recorded.push({ method: "PUT", path: p, handlerOrOptions, opts });
         return proxy;
       },
-      patch: (p: string, h: any, opts?: any) => {
-        recorded.push({ method: "PATCH", path: p, handler: h, opts });
+      patch: (p: string, handlerOrOptions: unknown, opts?: RouteOptionsWithAuth) => {
+        recorded.push({ method: "PATCH", path: p, handlerOrOptions, opts });
         return proxy;
       },
-      delete: (p: string, h: any, opts?: any) => {
-        recorded.push({ method: "DELETE", path: p, handler: h, opts });
+      delete: (p: string, handlerOrOptions: unknown, opts?: RouteOptionsWithAuth) => {
+        recorded.push({ method: "DELETE", path: p, handlerOrOptions, opts });
         return proxy;
       },
       use: () => proxy,
@@ -77,31 +110,109 @@ const loadRoutes = async (app: App) => {
 
     const prefix = type === "internal" ? "/internal" : "/api";
 
-    const strategy = getAuthStrategy(type);
+    const strategy = authEnabled ? getAuthStrategy(type) : undefined;
 
-    const wrapWithAuth = (handler: any) => {
-      return async (ctx: any) => {
-        // Extract headers from Elysia context
-        const headers: Record<string, string | string[] | undefined> = {};
-        ctx.request.headers.forEach((value: string, key: string) => {
-          headers[key.toLowerCase()] = value;
-        });
+    const wrapWithAuth = (handler: any, authRequired = true) => {
+      if (!authEnabled || !authRequired) {
+        return handler;
+      }
 
-        const result = await strategy.validate({ headers, type });
+      if (!strategy) {
+        return handler;
+      }
+
+      const headerName = strategy.keyHeaderName;
+
+      return (ctx: any) => {
+        const headerValue = normalizeHeaderValue(
+          ctx.request.headers.get(headerName)
+        );
+
+        const headers: Record<string, string | string[] | undefined> = {
+          [headerName]: headerValue,
+        };
+
+        const result = strategy.validate({ headers, type });
+        const handleUnauthorized = (error?: string) => {
+          ctx.set.status = 401;
+          return { error: error ?? "Unauthorized" };
+        };
+
+        const isPromise = (value: unknown): value is Promise<AuthResult> =>
+          typeof (value as Promise<AuthResult>)?.then === "function";
+
+        if (isPromise(result)) {
+          return result.then((authResult) => {
+            if (!authResult.valid) {
+              return handleUnauthorized(authResult.error);
+            }
+            return handler(ctx);
+          });
+        }
+
         if (!result.valid) {
-          return { status: 401, error: result.error };
+          return handleUnauthorized(result.error);
         }
 
         return handler(ctx);
       };
     };
 
+    const normalizeRoute = (
+      handlerOrOptions: unknown,
+      opts?: RouteOptionsWithAuth
+    ) => {
+      if (handlerOrOptions && typeof handlerOrOptions === "object" && "handler" in handlerOrOptions) {
+        const options = handlerOrOptions as RouteOptionsWithAuth & { handler?: unknown };
+        return {
+          isObjectStyle: true,
+          handler: options.handler,
+          options,
+          authRequired: options.authRequired,
+        };
+      }
+
+      return {
+        isObjectStyle: false,
+        handler: handlerOrOptions,
+        options: opts,
+        authRequired: opts?.authRequired,
+      };
+    };
+
     for (const r of recorded) {
       const fullPath = r.path.startsWith(prefix) ? r.path : `${prefix}${r.path}`;
-
       const method = r.method.toLowerCase();
-      (app as any)[method](fullPath, wrapWithAuth(r.handler), r.opts);
-      console.log(chalk.green(`[route] ${r.method} ${fullPath} (${type})`));
+
+      const normalized = normalizeRoute(r.handlerOrOptions, r.opts);
+      if (typeof normalized.handler !== "function") {
+        console.log(
+          chalk.yellow(`[routes] aviso: handler inválido em ${fullPath} (${type})`)
+        );
+        continue;
+      }
+
+      const authRequired = normalized.authRequired !== false;
+      const wrappedHandler = wrapWithAuth(normalized.handler, authRequired);
+
+      if (normalized.isObjectStyle && normalized.options) {
+        const { authRequired: _authRequired, handler: _handler, ...options } = normalized.options as RouteOptionsWithAuth & { handler?: unknown };
+        (app as any)[method](fullPath, wrappedHandler, options);
+      } else {
+        const options = normalized.options && typeof normalized.options === "object"
+          ? { ...normalized.options }
+          : normalized.options;
+        if (options && typeof options === "object" && "authRequired" in options) {
+          delete (options as RouteOptionsWithAuth).authRequired;
+        }
+        (app as any)[method](fullPath, wrappedHandler, options);
+      }
+
+      console.log(
+        chalk.green(
+          `[route] ${r.method} ${fullPath} (${type}) auth:${!authEnabled ? "off" : authRequired ? "on" : "off"}`
+        )
+      );
     }
   }
 };
@@ -123,7 +234,7 @@ export const startServer = async () => {
     console.log(chalk.yellow("[routes] Nenhuma rota registrada — endpoints retornarão 404"));
   }
 
-  const port = Number(process.env.PORT ?? 3000);
+  const port = env.PORT;
   app.listen(port, () => {
     console.log(chalk.green(`[server] HTTP server listening on :${port}`));
   });

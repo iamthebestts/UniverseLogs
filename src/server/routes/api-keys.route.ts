@@ -3,24 +3,42 @@ import type Elysia from "elysia";
 import { t } from "elysia";
 
 export default function registerApiKeyRoutes(app: Elysia) {
+  const parseUniverseId = (value: unknown): bigint | null => {
+    if (typeof value === "bigint") return value;
+    if (typeof value === "number") {
+      if (!Number.isFinite(value) || !Number.isInteger(value)) return null;
+      return BigInt(value);
+    }
+    if (typeof value === "string") {
+      if (!value.trim()) return null;
+      try {
+        return BigInt(value);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
   app.post("/keys/register", async (ctx) => {
     const { universeId } = ctx.body;
+    const parsedUniverseId = parseUniverseId(universeId);
 
-    if (typeof universeId !== "number") {
-      ctx.set.status(400);
-      return { error: "universeId é obrigatório e deve ser um número" };
+    if (parsedUniverseId === null) {
+      ctx.set.status = 400;
+      return { error: "universeId é obrigatório e deve ser um número inteiro ou string numérica" };
     }
 
     try {
-      const { key } = await createApiKey(universeId);
+      const { key } = await createApiKey(parsedUniverseId);
       return { key };
     } catch (err) {
-      ctx.set.status(500);
+      ctx.set.status = 500;
       return { error: "Erro ao criar a chave de API" };
     }
   }, {
     body: t.Object({
-      universeId: t.Number()
+      universeId: t.Union([t.Number(), t.String()])
     }),
     response: {
       200: t.Object({
@@ -40,7 +58,7 @@ export default function registerApiKeyRoutes(app: Elysia) {
 
     const id = await getIdByKey(key);
     if (!id) {
-      ctx.set.status(400);
+      ctx.set.status = 400;
       return { error: "Chave de API inválida" };
     }
 
@@ -48,7 +66,7 @@ export default function registerApiKeyRoutes(app: Elysia) {
       await revokeKey(id);
       return { success: true };
     } catch (err) {
-      ctx.set.status(500);
+      ctx.set.status = 500;
       return { error: "Erro ao revogar a chave de API" };
     }
   }, {
@@ -72,14 +90,10 @@ export default function registerApiKeyRoutes(app: Elysia) {
     const { key } = ctx.query;
 
     try {
-      const universeId = await validateApiKey(key);
-      const isValid = universeId !== null;
-      if (!isValid) {
-        ctx.set.status(400);
-      }
-      return { valid: isValid, universeId };
+      const { universeId } = await validateApiKey(key);
+      return { valid: true, universeId: universeId.toString() };
     } catch (err) {
-      ctx.set.status(500);
+      ctx.set.status = 400;
       return { valid: false };
     }
   }, {
@@ -89,11 +103,11 @@ export default function registerApiKeyRoutes(app: Elysia) {
     response: {
       200: t.Object({
         valid: t.Boolean(),
-        universeId: t.Number().Optional()
+        universeId: t.Optional(t.String())
       }),
       400: t.Object({
         valid: t.Boolean(),
-        universeId: t.Number().Optional()
+        universeId: t.Optional(t.String())
       }),
       500: t.Object({
         valid: t.Boolean()
@@ -103,11 +117,11 @@ export default function registerApiKeyRoutes(app: Elysia) {
 
   app.get("/keys/list", async (ctx) => {
     const { universeId } = ctx.query;
-    const parsedUniverseId = universeId ? Number(universeId) : undefined;
+    const parsedUniverseId = universeId ? parseUniverseId(universeId) : undefined;
 
-    if (parsedUniverseId !== undefined && isNaN(parsedUniverseId)) {
-      ctx.set.status(400);
-      return { error: "universeId deve ser um número" };
+    if (parsedUniverseId === null) {
+      ctx.set.status = 400;
+      return { error: "universeId deve ser um número inteiro ou string numérica" };
     }
 
     try {
@@ -121,12 +135,12 @@ export default function registerApiKeyRoutes(app: Elysia) {
       }));
       return serializedKeys;
     } catch (err) {
-      ctx.set.status(500);
+      ctx.set.status = 500;
       return { error: "Erro ao listar chaves de API" };
     }
   }, {
     query: t.Object({
-      universeId: t.Optional(t.Number())
+      universeId: t.Optional(t.Union([t.Number(), t.String()]))
     }),
     response: {
       200: t.Array(
@@ -152,7 +166,7 @@ export default function registerApiKeyRoutes(app: Elysia) {
       const count = await countActiveApiKeys();
       return { count };
     } catch (err) {
-      ctx.set.status(500);
+      ctx.set.status = 500;
       return { error: "Erro ao contar chaves de API" };
     }
   }, {
