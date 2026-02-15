@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+coverage
+*.lcov
+.env*
+!.env.example
+.idea
+.cache
+*.tsbuildinfo
+*.log
+tests
+docs
+*.md
+!README.md

@@ -284,9 +284,9 @@ export const buildApp = async () => {
 export const startServer = async () => {
   const app = await buildApp();
 
-  const port = env.PORT;
-  app.listen(port, () => {
-    console.log(chalk.green(`[server] HTTP server listening on :${port}`));
+  const { PORT: port, HOST: hostname } = env;
+  app.listen({ port, hostname }, () => {
+    console.log(chalk.green(`[server] HTTP server listening on ${hostname}:${port}`));
   });
 
   return app;
