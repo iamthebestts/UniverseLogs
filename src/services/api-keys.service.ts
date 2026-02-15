@@ -1,5 +1,7 @@
 import { db } from "@/db/client";
 import { api_keys as apiKeys, games } from "@/db/schema";
+import { env } from "@/env";
+import { ensureUniverseExists } from "./universes.service";
 import { and, count, eq } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
 
@@ -23,7 +25,7 @@ function hashKey(key: string): string {
 export async function createApiKey(universeId: bigint): Promise<{ key: string }> {
   const key = generateKey();
   const hash = hashKey(key);
-
+  // Ensure universe exists or handle according to env flags
   const [game] = await db
     .select()
     .from(games)
@@ -31,11 +33,13 @@ export async function createApiKey(universeId: bigint): Promise<{ key: string }>
     .limit(1);
 
   if (!game) {
-    // Cria o tenant se não existir; usa nome genérico para evitar bloquear a operação.
-    await db.insert(games).values({
-      universe_id: universeId,
-      name: "Auto-created universe",
-    }).onConflictDoNothing();
+    if (env.AUTO_CREATE_UNIVERSE) {
+      await ensureUniverseExists(universeId);
+    } else {
+      throw new Error(
+        "Universe não existe e AUTO_CREATE_UNIVERSE está desabilitado; use a rota interna de criação."
+      );
+    }
   }
 
   await db.insert(apiKeys).values({

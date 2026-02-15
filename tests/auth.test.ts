@@ -20,6 +20,11 @@ vi.mock("@/services/api-keys.service", () => ({
   countActiveApiKeys: vi.fn().mockResolvedValue(0),
 }));
 
+// Mock DB so /api/health checkDatabase() succeeds in tests
+vi.mock("@/db/client", () => ({
+  db: { execute: vi.fn().mockResolvedValue(undefined) },
+}));
+
 // 2. Import dependencies
 import { env } from "@/env";
 import { buildApp } from "@/server/server";
@@ -67,9 +72,17 @@ describe("Authentication System", () => {
       expect(body).toEqual({ count: 5 });
     });
 
-    it("should return 401 for /api routes without x-api-key", async () => {
+    it("should return 200 for /api/health without key (health is public)", async () => {
       const app = await buildApp();
       const response = await app.handle(new Request("http://localhost/api/health"));
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body).toMatchObject({ status: "ok", version: expect.any(String), checks: { database: "connected" } });
+    });
+
+    it("should return 401 for /api routes that require auth when without x-api-key", async () => {
+      const app = await buildApp();
+      const response = await app.handle(new Request("http://localhost/api/logs/550e8400-e29b-41d4-a716-446655440000"));
       expect(response.status).toBe(401);
       const body = await response.json();
       expect(body).toEqual({ error: "Missing API key" });
@@ -79,7 +92,7 @@ describe("Authentication System", () => {
       vi.mocked(validateApiKey).mockRejectedValue(new Error("API key inválida ou revogada"));
 
       const app = await buildApp();
-      const response = await app.handle(new Request("http://localhost/api/health", {
+      const response = await app.handle(new Request("http://localhost/api/logs/550e8400-e29b-41d4-a716-446655440000", {
         headers: { "x-api-key": "invalid-key" }
       }));
 
@@ -88,9 +101,7 @@ describe("Authentication System", () => {
       expect(body).toEqual({ error: "Invalid API key" });
     });
 
-    it("should return 200 for /api routes with VALID x-api-key", async () => {
-      vi.mocked(validateApiKey).mockResolvedValue({ universeId: BigInt(123) });
-
+    it("should return 200 for /api/health with VALID x-api-key", async () => {
       const app = await buildApp();
       const response = await app.handle(new Request("http://localhost/api/health", {
         headers: { "x-api-key": "valid-key" }
@@ -98,7 +109,7 @@ describe("Authentication System", () => {
 
       expect(response.status).toBe(200);
       const body = await response.json();
-      expect(body).toEqual({ status: "ok" });
+      expect(body).toMatchObject({ status: "ok", version: expect.any(String), checks: { database: "connected" } });
     });
   });
 
@@ -118,13 +129,13 @@ describe("Authentication System", () => {
       expect(body).toEqual({ count: 10 });
     });
 
-    it("should allow /api routes WITHOUT key", async () => {
+    it("should allow /api/health WITHOUT key", async () => {
       const app = await buildApp();
       const response = await app.handle(new Request("http://localhost/api/health"));
 
       expect(response.status).toBe(200);
       const body = await response.json();
-      expect(body).toEqual({ status: "ok" });
+      expect(body).toMatchObject({ status: "ok", version: expect.any(String), checks: { database: "connected" } });
     });
   });
 });

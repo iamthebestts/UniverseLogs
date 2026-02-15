@@ -15,6 +15,13 @@
       "when": 1769385600000,
       "tag": "0001_add_topic_to_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1769654400000,
+      "tag": "0002_add_universe_metadata",
+      "breakpoints": true
     }
   ]
 }

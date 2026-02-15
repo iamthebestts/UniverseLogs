@@ -5,7 +5,11 @@ export const logLevel = pgEnum("log_level", ["info", "warn", "error"]);
 export const games = pgTable("games", {
   universe_id: bigint("universe_id", { mode: "bigint" }).primaryKey(),
   name: text("name").notNull(),
+  description: text("description"),
+  metadata: jsonb("metadata").default({}),
+  is_active: boolean("is_active").default(true).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }),
 });
 
 export const api_keys = pgTable("api_keys", {
