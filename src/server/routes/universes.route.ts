@@ -8,13 +8,15 @@ import { serialize } from "../utils/serialization";
 const parseUniverseId = (value: unknown): bigint | null => {
   if (typeof value === "bigint") return value;
   if (typeof value === "number") {
-    if (!Number.isFinite(value) || !Number.isInteger(value)) return null;
+    if (!Number.isFinite(value) || !Number.isInteger(value) || !Number.isSafeInteger(value))
+      return null;
     return BigInt(value);
   }
   if (typeof value === "string") {
-    if (!value.trim()) return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
     try {
-      return BigInt(value);
+      return BigInt(trimmed);
     } catch {
       return null;
     }

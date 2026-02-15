@@ -1,6 +1,17 @@
 import { validateEnv } from "@/core/env.validate";
 import { z } from "zod";
 
+const envBoolean = (defaultValue: boolean) =>
+    z
+        .union([z.boolean(), z.string()])
+        .transform((v) => {
+            if (typeof v === "boolean") return v;
+            const s = String(v).trim().toLowerCase();
+            if (s === "" || s === "false" || s === "0" || s === "no" || s === "off") return false;
+            return true;
+        })
+        .default(defaultValue);
+
 export const env = validateEnv(
     z.object({
         // Database
@@ -8,11 +19,11 @@ export const env = validateEnv(
 
         // API
         PORT: z.coerce.number().default(3000),
-        USE_AUTH: z.coerce.boolean().default(true),
+        USE_AUTH: envBoolean(true),
 
         // Universe Management
-        AUTO_CREATE_UNIVERSE: z.coerce.boolean().default(true),
-        FETCH_ROBLOX_API: z.coerce.boolean().default(true),
+        AUTO_CREATE_UNIVERSE: envBoolean(true),
+        FETCH_ROBLOX_API: envBoolean(true),
 
         // Keys
         MASTER_KEY: z.string("Master key is required").min(1),

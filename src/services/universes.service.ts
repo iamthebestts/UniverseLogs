@@ -19,12 +19,17 @@ export type UniverseRecord = {
   updated_at?: Date | null;
 };
 
+const ROBLOX_FETCH_TIMEOUT_MS = 10_000;
+
 async function fetchRobloxUniverse(universeId: bigint): Promise<UniverseMetadata | null> {
   if (!env.FETCH_ROBLOX_API) return null;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ROBLOX_FETCH_TIMEOUT_MS);
   try {
     const idStr = universeId.toString();
     const url = `https://games.roblox.com/v1/games?universeIds=${idStr}`;
-    const res = await fetch(url, { method: "GET" });
+    const res = await fetch(url, { method: "GET", signal: controller.signal });
+    clearTimeout(timeoutId);
     if (!res.ok) return null;
     const data = await res.json();
     const item = Array.isArray(data?.data) ? data.data[0] : undefined;
@@ -34,7 +39,9 @@ async function fetchRobloxUniverse(universeId: bigint): Promise<UniverseMetadata
       description: item.description ?? undefined,
       extra: { raw: item },
     };
-  } catch {
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === "AbortError") return null;
     return null;
   }
 }
@@ -68,6 +75,7 @@ export async function createUniverse(
 
   // If already exists, update metadata/name if provided
   let universe = record;
+  let action: "create" | "update" = "create";
   if (!record) {
     const [existing] = await db
       .select()
@@ -75,6 +83,7 @@ export async function createUniverse(
       .where(eq(games.universe_id, universeId))
       .limit(1);
     if (existing) {
+      action = "update";
       await db
         .update(games)
         .set({
@@ -96,38 +105,37 @@ export async function createUniverse(
     }
   }
 
-  // Log creation event
+  const message = action === "create" ? "Universe created" : "Universe updated";
   await db.insert(logs).values({
     universe_id: universeId,
     level: "info",
-    message: "Universe created",
+    message,
     topic: "universe",
-    metadata: { action: "create" },
+    metadata: { action },
   });
 
   return universe as UniverseRecord;
 }
 
 export async function revokeUniverse(universeId: bigint): Promise<void> {
-  // Mark universe inactive
-  await db
-    .update(games)
-    .set({ is_active: false, updated_at: new Date() })
-    .where(eq(games.universe_id, universeId));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(games)
+      .set({ is_active: false, updated_at: new Date() })
+      .where(eq(games.universe_id, universeId));
 
-  // Revoke all keys
-  await db
-    .update(apiKeys)
-    .set({ is_active: false, revoked_at: new Date() })
-    .where(eq(apiKeys.universe_id, universeId));
+    await tx
+      .update(apiKeys)
+      .set({ is_active: false, revoked_at: new Date() })
+      .where(eq(apiKeys.universe_id, universeId));
 
-  // Log revoke event
-  await db.insert(logs).values({
-    universe_id: universeId,
-    level: "warn",
-    message: "Universe revoked",
-    topic: "universe",
-    metadata: { action: "revoke" },
+    await tx.insert(logs).values({
+      universe_id: universeId,
+      level: "warn",
+      message: "Universe revoked",
+      topic: "universe",
+      metadata: { action: "revoke" },
+    });
   });
 }
 

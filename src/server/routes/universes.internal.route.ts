@@ -6,7 +6,8 @@ import { ValidationError } from "../errors";
 const parseUniverseId = (value: unknown): bigint | null => {
   if (typeof value === "bigint") return value;
   if (typeof value === "number") {
-    if (!Number.isFinite(value) || !Number.isInteger(value)) return null;
+    if (!Number.isFinite(value) || !Number.isInteger(value) || !Number.isSafeInteger(value))
+      return null;
     return BigInt(value);
   }
   if (typeof value === "string") {
