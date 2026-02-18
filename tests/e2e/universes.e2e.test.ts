@@ -23,10 +23,23 @@ describe("Universes Management E2E", () => {
         body: JSON.stringify({ universeId: testUniverseId }),
       })
     );
+    expect(res.ok, `Setup failed to create master key: ${await res.clone().text()}`).toBe(true);
     const data = await res.json();
+    expect(data.key, "Response body should contain API key").toBeDefined();
     masterApiKey = data.key;
 
     // 2. Garantir que o universo exista para testes que o esperam
+    const setupUniRes = await app.handle(
+      new Request("http://localhost/internal/universes/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-master-key": env.MASTER_KEY,
+        },
+        body: JSON.stringify({ universeId: testUniverseId }),
+      })
+    );
+    expect(setupUniRes.ok, `Setup failed to ensure universe exists: ${await setupUniRes.clone().text()}`).toBe(true);
   });
 
   describe("Internal Management", () => {
@@ -133,7 +146,11 @@ describe("Universes Management E2E", () => {
         new Request("http://localhost/api/universes", {
           method: "POST",
           headers: { "x-api-key": masterApiKey, "Content-Type": "application/json" },
-          body: JSON.stringify({ universeId: targetId, name: "To be revoked" }),
+          body: JSON.stringify({ 
+            universeId: targetId, 
+            name: "To be revoked",
+            createKey: true 
+          }),
         })
       );
       const { key: targetKey } = await regRes.json();

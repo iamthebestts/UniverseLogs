@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 // 1. Mock modules
 vi.mock("@/env", () => ({
   env: {
-    USE_AUTH: true,
     MASTER_KEY: "test-master-key",
     PORT: 0,
     DATABASE_URL: "postgres://mock",

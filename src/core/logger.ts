@@ -13,13 +13,17 @@ interface LogEntry {
 class Logger {
   private isDev = env.NODE_ENV === "dev";
 
+  private bigintReplacer(_: string, value: unknown) {
+    return typeof value === "bigint" ? value.toString() : value;
+  }
+
   private format(level: LogLevel, message: string, meta: Record<string, unknown> = {}) {
     const timestamp = new Date().toISOString();
 
     if (this.isDev) {
       // Pretty print for development
       const color = this.getColor(level);
-      const metaStr = Object.keys(meta).length ? `\n${JSON.stringify(meta, null, 2)}` : "";
+      const metaStr = Object.keys(meta).length ? `\n${JSON.stringify(meta, this.bigintReplacer, 2)}` : "";
       return `${chalk.gray(timestamp)} ${color(`[${level.toUpperCase()}]`)} ${message}${chalk.gray(metaStr)}`;
     }
 
@@ -31,9 +35,7 @@ class Logger {
       service: "logs-api",
       ...meta,
     };
-    return JSON.stringify(entry, (_, value) => 
-      typeof value === "bigint" ? value.toString() : value
-    );
+    return JSON.stringify(entry, this.bigintReplacer);
   }
 
   private getColor(level: LogLevel) {

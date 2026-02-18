@@ -1,7 +1,8 @@
 {
   "name": "logs-api",
-  "description": "Serviço de ingestão e consulta de logs estruturados com isolamento multi-tenant por UniverseId, voltado para jogos Roblox e aplicações distribuídas.",
-  "version": "1.0.50",
+  "description": "API de Ingestão e Consulta de Logs Estruturados de Alta Performance com isolamento multi-tenant nativo, otimizada para jogos distribuídos e microsserviços.",
+  "version": "1.0.0",
+  "license": "MIT",
   "module": "src/index.ts",
   "main": "src/index.ts",
   "private": true,

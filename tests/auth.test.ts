@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // 1. Mock modules BEFORE importing anything else
 vi.mock("@/env", () => ({
   env: {
-    USE_AUTH: true,
     MASTER_KEY: "test-master-key",
     PORT: 0,
     DATABASE_URL: "postgres://mock",
@@ -34,11 +33,10 @@ describe("Authentication System", () => {
   // Reset mocks and env before each test
   beforeEach(() => {
     vi.clearAllMocks();
-    env.USE_AUTH = true;
     env.MASTER_KEY = "test-master-key";
   });
 
-  describe("When USE_AUTH is TRUE", () => {
+  describe("API and Internal protection", () => {
     it("should return 401 for /internal routes without x-master-key", async () => {
       const app = await buildApp();
       const response = await app.handle(new Request("http://localhost/internal/keys/count"));
@@ -105,32 +103,6 @@ describe("Authentication System", () => {
       const response = await app.handle(new Request("http://localhost/api/health", {
         headers: { "x-api-key": "valid-key" }
       }));
-
-      expect(response.status).toBe(200);
-      const body = await response.json();
-      expect(body).toMatchObject({ status: "ok", version: expect.any(String), checks: { database: "connected" } });
-    });
-  });
-
-  describe("When USE_AUTH is FALSE", () => {
-    beforeEach(() => {
-      env.USE_AUTH = false;
-    });
-
-    it("should allow /internal routes WITHOUT key", async () => {
-      (countActiveApiKeys as any).mockResolvedValue(10);
-
-      const app = await buildApp();
-      const response = await app.handle(new Request("http://localhost/internal/keys/count"));
-
-      expect(response.status).toBe(200);
-      const body = await response.json();
-      expect(body).toEqual({ count: 10 });
-    });
-
-    it("should allow /api/health WITHOUT key", async () => {
-      const app = await buildApp();
-      const response = await app.handle(new Request("http://localhost/api/health"));
 
       expect(response.status).toBe(200);
       const body = await response.json();

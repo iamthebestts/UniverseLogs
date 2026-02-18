@@ -16,14 +16,13 @@ export const env = validateEnv(
     z.object({
         // Database
         DATABASE_URL: z.string("Database URL is required").min(1),
-        RUN_MIGRATE: envBoolean(true),
+        RUN_MIGRATE: envBoolean(false),
         DB_MAX_CONNECTIONS: z.coerce.number().default(10),
-        DB_IDLE_TIMEOUT: z.coerce.number().default(20),
+        DB_IDLE_TIMEOUT: z.coerce.number().default(30),
 
         // API
         PORT: z.coerce.number().default(3000),
         HOST: z.string().default("0.0.0.0"),
-        USE_AUTH: envBoolean(true),
 
         // Universe Management
         AUTO_CREATE_UNIVERSE: envBoolean(true),

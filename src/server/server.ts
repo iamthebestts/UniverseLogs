@@ -4,8 +4,6 @@ import { sql } from "@/db/client";
 import { env } from "@/env";
 import { cors } from "@elysiajs/cors";
 import { edenTreaty } from "@elysiajs/eden";
-import { swagger } from "@elysiajs/swagger";
-import { websocket } from "@elysiajs/websocket";
 import chalk from "chalk";
 import { Elysia } from "elysia";
 import { readdir } from "node:fs/promises";
@@ -104,8 +102,7 @@ const loadRoutes = async (app: App) => {
     console.log(chalk.yellow("[routes] Nenhum arquivo .route encontrado"));
   }
 
-  const authEnabled = env.USE_AUTH === true;
-  logger.info(`[auth] autenticação global ${authEnabled ? "ATIVADA" : "DESATIVADA"}`);
+  logger.info(`[auth] autenticação global ATIVADA`);
 
   for (const file of routeFiles) {
     const filePath = join(ROUTES_DIR, file);
@@ -152,10 +149,10 @@ const loadRoutes = async (app: App) => {
 
     const prefix = type === "internal" ? "/internal" : "/api";
 
-    const strategy = authEnabled ? getAuthStrategy(type) : undefined;
+    const strategy = getAuthStrategy(type);
 
     const wrapWithAuth = (handler: any, authRequired = true) => {
-      if (!authEnabled || !authRequired || !strategy) {
+      if (!authRequired || !strategy) {
         return handler;
       }
 
@@ -235,7 +232,7 @@ const loadRoutes = async (app: App) => {
       }
 
       logger.info(
-        `[route] ${r.method} ${fullPath} (${type}) auth:${!authEnabled ? "off" : authRequired ? "on" : "off"}`
+        `[route] ${r.method} ${fullPath} (${type}) auth:${authRequired ? "on" : "off"}`
       );
     }
   }
@@ -255,6 +252,9 @@ export const buildApp = async () => {
   app.use(securityHeaders);
 
   if (env.NODE_ENV !== "test") {
+    const { websocket } = await import("@elysiajs/websocket");
+    const { swagger } = await import("@elysiajs/swagger");
+
     app.use(websocket());
 
     app.use(

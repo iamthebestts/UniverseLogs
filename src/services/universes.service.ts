@@ -51,7 +51,7 @@ export async function createUniverse(
   manual?: UniverseMetadata
 ): Promise<UniverseRecord> {
   const fetched = await fetchRobloxUniverse(universeId);
-  const meta: UniverseMetadata = fetched ?? manual ?? {
+  const meta: UniverseMetadata = manual ?? fetched ?? {
     name: `Universe ${universeId}`,
     description: "Criado automaticamente",
     extra: { source: "auto_fallback" }

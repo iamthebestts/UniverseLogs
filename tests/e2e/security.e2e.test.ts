@@ -24,6 +24,7 @@ describe("Security & Rate Limit E2E", () => {
           body: JSON.stringify({ universeId }),
         })
       );
+      expect(createKeyRes.status, `Failed to create API key: ${await createKeyRes.clone().text()}`).toBe(200);
       const { key: apiKey } = await createKeyRes.json();
 
       // 2. Verificar se a chave funciona
@@ -72,15 +73,14 @@ describe("Security & Rate Limit E2E", () => {
       // A rota /api/ping tem um limite de 60 requisições por minuto
       // Vamos realizar 60 requisições e a 61ª deve falhar.
 
-      const requests = Array.from({ length: 60 }).map(() =>
-        app.handle(new Request("http://localhost/api/ping"))
-      );
-
-      const results = await Promise.all(requests);
+      const results: Response[] = [];
+      for (let i = 0; i < 60; i++) {
+        results.push(await app.handle(new Request("http://localhost/api/ping")));
+      }
 
       // Todas as primeiras 60 devem retornar 200
-      results.forEach(res => {
-        expect(res.status).toBe(200);
+      results.forEach((res, i) => {
+        expect(res.status, `Request ${i + 1} failed`).toBe(200);
       });
 
       // A 61ª deve retornar 429
@@ -103,7 +103,10 @@ describe("Security & Rate Limit E2E", () => {
           body: JSON.stringify({ universeId: "111" }),
         })
       );
+      expect(createKeyRes.ok, `Key registration failed with status ${createKeyRes.status}`).toBe(true);
       const { key: apiKey } = await createKeyRes.json();
+      expect(typeof apiKey, "apiKey must be a non-empty string").toBe("string");
+      expect(apiKey.length).toBeGreaterThan(0);
 
       // 2. A rota /api/logs tem um limite de 100 requisições por minuto
       // Usamos um loop menor se possível, mas vamos manter o limite real.

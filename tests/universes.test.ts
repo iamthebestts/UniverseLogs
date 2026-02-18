@@ -28,7 +28,6 @@ vi.mock("@/db/client", () => ({
 // Mock env before other imports
 vi.mock("@/env", () => ({
   env: {
-    USE_AUTH: true,
     MASTER_KEY: "test-master-key",
     PORT: 0,
     DATABASE_URL: "postgres://mock",
@@ -78,7 +77,6 @@ import { createApiKey, validateApiKey } from "@/services/api-keys.service";
 describe("Universes Service & Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    env.USE_AUTH = true;
     env.MASTER_KEY = "test-master-key";
     env.AUTO_CREATE_UNIVERSE = true;
     env.FETCH_ROBLOX_API = true;
