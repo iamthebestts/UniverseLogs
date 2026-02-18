@@ -1,118 +1,109 @@
-# logs-api
+# Logs API 🚀
 
-API de ingestão e consulta de logs estruturados com isolamento multi-tenant. Cada tenant é identificado por um UniverseId (jogo Roblox) ou por um ID numérico de aplicação. O tenant é sempre resolvido pela API Key — o cliente não envia UniverseId nas requisições.
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Tech Stack](https://img.shields.io/badge/stack-Bun_Elysia_Drizzle_Postgres-orange)
+![Version](https://img.shields.io/badge/version-1.0.50-blue)
 
-## Stack
+**API de Ingestão e Consulta de Logs Estruturados de Alta Performance.**
 
-| Camada        | Tecnologia   |
-|---------------|--------------|
-| Runtime       | [Bun](https://bun.sh) |
-| HTTP          | [Elysia](https://elysiajs.com) |
-| Banco de dados| PostgreSQL + [Drizzle ORM](https://orm.drizzle.team) |
-| Validação     | Zod (env + body/query) |
+Projetada para resolver o problema de observabilidade em **Jogos Distribuídos (Roblox/Unity)** e **Microsserviços**, onde a centralização de logs em tempo real é crítica para debugging, auditoria e telemetria.
 
-## Pré-requisitos
+---
 
-- [Bun](https://bun.sh) instalado
-- PostgreSQL em execução
+## 🏗️ Arquitetura e Performance
 
-## Como rodar
+A solução utiliza um design focado em **baixa latência de escrita** (Write-Heavy) e **isolamento multi-tenant**.
 
-1. **Clonar e instalar**
+### Destaques Técnicos
+- **In-Memory Log Buffer:** Agrupamento de inserções em lotes (Batch Processing) para evitar gargalos no PostgreSQL.
+- **Realtime WebSockets:** Streaming de logs instantâneo para dashboards conectados.
+- **Fire-and-Forget:** Resposta imediata ao cliente enquanto a persistência ocorre em background.
+- **Multi-Tenant:** Isolamento rigoroso de dados por `UniverseId` (Tenant) via API Keys.
 
+### Fluxo de Dados
+```mermaid
+graph LR
+    Client([Game Client / App]) -->|POST /logs| API[Elysia API]
+    
+    subgraph "Server Core"
+        API -->|Validate| Auth[Auth Middleware]
+        Auth -->|Push| Buffer[In-Memory Log Buffer]
+        Worker((Background Worker)) -.->|Flush every 5s| Buffer
+        Auth -->|Publish| WS[WebSocket Manager]
+    end
+    
+    Buffer -->|Batch Insert| DB[(PostgreSQL)]
+    WS -->|Realtime Stream| Dash([Dashboard / UI])
+```
+
+---
+
+## 📚 Documentação Detalhada
+
+Para guias completos, consulte os arquivos na pasta `/docs`:
+
+- 🌐 **[Guia de Rotas HTTP](./docs/rotas.md)**: Referência de todos os endpoints REST, parâmetros e autenticação.
+- 🔌 **[WebSocket Realtime](./docs/websocket.md)**: Como se conectar e interagir via socket para streaming em tempo real.
+- 🚀 **[Guia de Deployment](./docs/deploy.md)**: Instruções para Docker, Discloud, migrações de banco e CI/CD.
+- 📖 **Swagger UI**: Disponível em `/docs` com a aplicação rodando.
+
+---
+
+## 🛠️ Stack Tecnológica
+
+| Componente | Tecnologia | Motivação |
+|------------|------------|-----------|
+| **Runtime** | [Bun](https://bun.sh) | Performance superior e ferramentas integradas. |
+| **Framework** | [ElysiaJS](https://elysiajs.com) | Otimizado para Bun, com suporte nativo a WebSockets e Swagger. |
+| **Database** | PostgreSQL | Armazenamento robusto com suporte a JSONB. |
+| **ORM** | [Drizzle](https://orm.drizzle.team) | Type-safe, leve e focado em performance. |
+| **Logger** | Custom Structured | Logs JSON em produção e formatados em desenvolvimento. |
+
+---
+
+## ⚡ Início Rápido
+
+### Pré-requisitos
+- **Bun** instalado (`curl -fsSL https://bun.sh/install | bash`)
+- Instância do **PostgreSQL** ativa
+
+### Instalação e Execução
+1. **Clone o repositório:**
    ```bash
    git clone https://github.com/iamthebestts/logs-api
    cd logs-api
+   ```
+2. **Instale as dependências:**
+   ```bash
    bun install
    ```
-
-2. **Variáveis de ambiente**
-
-   Copie o exemplo e preencha os valores obrigatórios:
-
+3. **Configure as variáveis de ambiente:**
    ```bash
    cp .env.example .env
+   # Preencha DATABASE_URL e MASTER_KEY no .env
    ```
-
-   Campos obrigatórios: `DATABASE_URL`, `MASTER_KEY`. O restante tem valor padrão (veja `.env.example`).
-
-3. **Migrações** — Por padrão a aplicação aplica as migrações ao subir (`RUN_MIGRATE=true`). Para rodar só via CLI antes de iniciar: `bun run migrate`. Ver **quem roda as migrações no deploy** em [docs/deploy.md](docs/deploy.md).
-
-4. **Subir a API**
-
+4. **Inicie o servidor:**
    ```bash
-   bun run dev    # desenvolvimento (watch)
-   bun run start  # produção
+   bun run dev   # Modo desenvolvimento
+   bun run start # Modo produção
    ```
 
-   Por padrão o servidor escuta em `http://localhost:3000`.
+---
 
-## Scripts
+## 🧪 Qualidade e Testes
 
-| Comando           | Uso |
-|-------------------|-----|
-| `bun run dev`     | Desenvolvimento com reload |
-| `bun run start`   | Produção |
-| `bun run migrate` | Aplicar migrações (Drizzle); na subida da API já roda se `RUN_MIGRATE=true` |
-| `bun test`       | Testes (Vitest) |
-
-## Documentação da API
-
-Referência completa das rotas (métodos, body, query, autenticação):
-
-- **[docs/rotas.md](docs/rotas.md)** — Todas as rotas em `src/server/routes/`
-
-Resumo rápido:
-
-- **Autenticação:** rotas `/api/*` usam header `X-API-Key`; rotas `/internal/*` usam `X-Master-Key`. `/api/health` e `/api/ping` são públicas.
-- **Principais endpoints:** `POST /api/logs` (criar log), `GET /api/logs/:id` (buscar log), além de gestão de universos e API keys (detalhes em `docs/rotas.md`).
-
-## Docker e Discloud
-
-### Docker
-
-O projeto inclui um `Dockerfile` para rodar a API em container (Bun, porta 8080):
+O projeto segue rigorosos padrões de qualidade com testes automatizados cobrindo autenticação, lógica de buffer, rotas e websockets.
 
 ```bash
-docker build -t logs-api .
-docker run -p 8080:8080 --env-file .env logs-api
+bun test              # Rodar suíte de testes
+bun run test:coverage # Relatório de cobertura
 ```
 
-No container, `PORT=8080` e `HOST=0.0.0.0` já vêm definidos; para produção defina `DATABASE_URL`, `MASTER_KEY` e demais variáveis (via `--env-file` ou `-e`).
+---
 
-### Discloud
+## 🔒 Segurança
 
-Para deploy na [Discloud](https://discloud.com) como **site/API**:
-
-1. **Subdomínio** — No dashboard Discloud, crie um subdomínio (ex.: `logs-api` → `logs-api.discloud.app`).
-2. **Arquivo `discloud.config`** — Já está na raiz do projeto. Ajuste `ID` para o subdomínio criado.
-3. **Variáveis de ambiente** — No dashboard da aplicação, configure pelo menos:
-   - `PORT=8080`
-   - `HOST=0.0.0.0`
-   - `DATABASE_URL`
-   - `MASTER_KEY`
-   - Demais variáveis conforme `.env.example`.
-4. **Deploy** — Envie o projeto em zip (pelo site, CLI, Bot Discord ou [extensão VS Code](https://marketplace.visualstudio.com/items?itemName=Discloud.discloud)); o arquivo `discloud.config` deve estar na raiz do zip. Use `.discloudignore` para não enviar pastas desnecessárias.
-
-Requisitos Discloud para sites: plano Platinum ou superior, RAM mínima 512 MB. A aplicação escuta em `0.0.0.0:8080` quando `PORT=8080` e `HOST=0.0.0.0`. **Migrações:** por padrão a própria app roda as migrações na subida; detalhes em [docs/deploy.md](docs/deploy.md).
-
-## Estrutura do projeto
-
-```
-src/
-  server/          # app Elysia, auth, handlers
-    routes/        # definição das rotas (api + internal)
-  services/        # lógica de negócio (logs, universes, api-keys)
-  db/              # schema Drizzle e cliente Postgres
-  core/            # validação de env, cache, etc.
-docs/              # documentação (rotas)
-```
-
-## Testes
-
-```bash
-bun test
-bun run test:coverage  # relatório de cobertura
-```
-
-Testes com Vitest; mocks para env e serviços externos.
+- **Rate Limiting:** Proteção contra força bruta e spam de logs.
+- **Helmet Headers:** Implementação de headers de segurança OWASP.
+- **Graceful Shutdown:** Garante a integridade dos dados no buffer antes do desligamento.

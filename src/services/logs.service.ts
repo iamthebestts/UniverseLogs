@@ -1,5 +1,7 @@
+import { logBuffer } from "@/core/log-buffer";
 import { db } from "@/db/client";
 import { games, logs } from "@/db/schema";
+import { wsManager } from "@/server/websocket/manager";
 import { and, eq } from "drizzle-orm";
 
 export interface LogData {
@@ -10,33 +12,54 @@ export interface LogData {
 }
 
 /**
- * Cria um log para um universo específico, garantindo que o universo exista na tabela de jogos.
- * Se o universo não existir, ele será criado automaticamente com um nome padrão.
+ * Garante que o universo exista no banco de dados.
+ * Utiliza cache simples para evitar hits desnecessários no banco em alta volumetria.
+ */
+const knownUniverses = new Set<string>();
+
+async function ensureUniverseExists(universeId: bigint) {
+  const idStr = universeId.toString();
+  if (knownUniverses.has(idStr)) return;
+
+  await db
+    .insert(games)
+    .values({ universe_id: universeId, name: "Auto-created universe" })
+    .onConflictDoNothing();
+  
+  knownUniverses.add(idStr);
+}
+
+/**
+ * Cria um log para um universo específico utilizando buffer em memória para alta performance.
+ * O log é enfileirado e gravado em lote assincronamente.
  *
- * @param universeId - O ID do universo para o qual o log será criado.
- * @param data - Os dados do log, incluindo nível, mensagem, metadados e tópico.
- * @returns O log criado, incluindo o ID gerado.
+ * @param universeId - O ID do universo.
+ * @param data - Os dados do log.
+ * @returns O log criado (objeto em memória, antes da persistência).
  */
 export async function createLog(universeId: bigint, data: LogData) {
-  return db.transaction(async (tx) => {
-    await tx
-      .insert(games)
-      .values({ universe_id: universeId, name: "Auto-created universe" })
-      .onConflictDoNothing();
+  // 1. Garantir existência do universo (Non-blocking para o buffer de logs, mas necessário para FK)
+  await ensureUniverseExists(universeId);
 
-    const [log] = await tx
-      .insert(logs)
-      .values({
-        universe_id: universeId,
-        level: data.level,
-        message: data.message,
-        metadata: data.metadata,
-        topic: data.topic,
-      })
-      .returning();
+  // 2. Criar objeto do log com ID gerado pela aplicação
+  const logEntry = {
+    id: crypto.randomUUID(),
+    universe_id: universeId,
+    level: data.level,
+    message: data.message,
+    metadata: data.metadata,
+    topic: data.topic,
+    timestamp: new Date(),
+  };
 
-    return log;
-  });
+  // 3. Adicionar ao buffer de escrita
+  logBuffer.add(logEntry);
+
+  // 4. Broadcast via WebSocket (Realtime)
+  wsManager.broadcast(universeId, logEntry);
+
+  // 5. Retornar imediatamente (Fire-and-forget)
+  return logEntry;
 }
 
 /**

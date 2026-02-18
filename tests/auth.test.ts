@@ -34,7 +34,6 @@ describe("Authentication System", () => {
   // Reset mocks and env before each test
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
     env.USE_AUTH = true;
     env.MASTER_KEY = "test-master-key";
   });
@@ -60,7 +59,7 @@ describe("Authentication System", () => {
 
     it("should return 200 for /internal routes with valid x-master-key", async () => {
       // Mock the service response
-      vi.mocked(countActiveApiKeys).mockResolvedValue(5);
+      (countActiveApiKeys as any).mockResolvedValue(5);
 
       const app = await buildApp();
       const response = await app.handle(new Request("http://localhost/internal/keys/count", {
@@ -89,7 +88,7 @@ describe("Authentication System", () => {
     });
 
     it("should return 401 for /api routes with OUTDATED/INVALID x-api-key (service throws)", async () => {
-      vi.mocked(validateApiKey).mockRejectedValue(new Error("API key inválida ou revogada"));
+      (validateApiKey as any).mockRejectedValue(new Error("API key inválida ou revogada"));
 
       const app = await buildApp();
       const response = await app.handle(new Request("http://localhost/api/logs/550e8400-e29b-41d4-a716-446655440000", {
@@ -119,7 +118,7 @@ describe("Authentication System", () => {
     });
 
     it("should allow /internal routes WITHOUT key", async () => {
-      vi.mocked(countActiveApiKeys).mockResolvedValue(10);
+      (countActiveApiKeys as any).mockResolvedValue(10);
 
       const app = await buildApp();
       const response = await app.handle(new Request("http://localhost/internal/keys/count"));

@@ -4,6 +4,7 @@ import { t } from "elysia";
 import type { RouteApp } from "../server";
 import { ValidationError } from "../errors";
 import { serialize } from "../utils/serialization";
+import { rateLimitHandler } from "../handlers/rate-limit";
 
 const parseUniverseId = (value: unknown): bigint | null => {
   if (typeof value === "bigint") return value;
@@ -55,6 +56,13 @@ export default function registerUniverseRoutes(app: RouteApp) {
         createKey: t.Optional(t.Boolean()),
       }),
       authRequired: true,
+      beforeHandle: rateLimitHandler({ maxRequests: 10, windowMs: 60_000 }),
+      detail: {
+        tags: ["Universes"],
+        summary: "Criar/Registrar Universo (Público)",
+        description: "Permite registrar um universo manualmente se a chave for válida.",
+        security: [{ ApiKeyAuth: [] }], // Nota: esta rota usa auth, mas tipicamente criação pública poderia ser aberta ou restrita. Assumindo comportamento atual.
+      },
     }
   );
 
@@ -68,7 +76,16 @@ export default function registerUniverseRoutes(app: RouteApp) {
       await revokeUniverse(parsed);
       return { success: true };
     },
-    { authRequired: true }
+    { 
+      authRequired: true, 
+      beforeHandle: rateLimitHandler({ maxRequests: 10, windowMs: 60_000 }),
+      detail: {
+        tags: ["Universes"],
+        summary: "Revogar Universo",
+        description: "Desativa um universo e invalida suas chaves.",
+        security: [{ ApiKeyAuth: [] }],
+      },
+    }
   );
 
   app.get(
@@ -83,7 +100,16 @@ export default function registerUniverseRoutes(app: RouteApp) {
       const logs = await listUniverseLogs(parsed, 10);
       return serialize({ universe, logs });
     },
-    { authRequired: true }
+    { 
+      authRequired: true, 
+      beforeHandle: rateLimitHandler({ maxRequests: 60, windowMs: 60_000 }),
+      detail: {
+        tags: ["Universes"],
+        summary: "Consultar Universo",
+        description: "Retorna metadados do universo e os últimos 10 logs.",
+        security: [{ ApiKeyAuth: [] }],
+      },
+    }
   );
 
   return "api";

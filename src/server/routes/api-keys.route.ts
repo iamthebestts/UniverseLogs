@@ -35,7 +35,12 @@ export default function registerApiKeyRoutes(app: RouteApp) {
   }, {
     body: t.Object({
       universeId: t.Union([t.Number(), t.String()])
-    })
+    }),
+    detail: {
+      tags: ["Internal", "API Keys"],
+      summary: "Registrar Nova Key",
+      security: [{ MasterKeyAuth: [] }],
+    }
   });
 
   app.post<{ key: string }>("/keys/revoke", async (ctx) => {
@@ -51,7 +56,12 @@ export default function registerApiKeyRoutes(app: RouteApp) {
   }, {
     body: t.Object({
       key: t.String()
-    })
+    }),
+    detail: {
+      tags: ["Internal", "API Keys"],
+      summary: "Revogar Key",
+      security: [{ MasterKeyAuth: [] }],
+    }
   });
 
   app.get("/keys/validate", async (ctx) => {
@@ -66,7 +76,12 @@ export default function registerApiKeyRoutes(app: RouteApp) {
   }, {
     query: t.Object({
       key: t.String()
-    })
+    }),
+    detail: {
+      tags: ["Internal", "API Keys"],
+      summary: "Validar Key",
+      security: [{ MasterKeyAuth: [] }],
+    }
   });
 
   app.get("/keys/list", async (ctx) => {
@@ -82,12 +97,23 @@ export default function registerApiKeyRoutes(app: RouteApp) {
   }, {
     query: t.Object({
       universeId: t.Optional(t.Union([t.Number(), t.String()]))
-    })
+    }),
+    detail: {
+      tags: ["Internal", "API Keys"],
+      summary: "Listar Keys",
+      security: [{ MasterKeyAuth: [] }],
+    }
   });
 
-  app.get("/keys/count", async () => {
+  app.get("/keys/count", async (ctx) => {
     const count = await countActiveApiKeys();
     return { count };
+  }, {
+    detail: {
+      tags: ["Internal", "API Keys"],
+      summary: "Contar Keys Ativas",
+      security: [{ MasterKeyAuth: [] }],
+    }
   });
 
   return "internal";

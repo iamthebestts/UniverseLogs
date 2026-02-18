@@ -48,6 +48,16 @@ export default function registerHealthRoutes(app: RouteApp) {
       {
         beforeHandle: healthRateLimit,
         authRequired: false,
+        detail: {
+          tags: ["System"],
+          summary: "Health Check",
+          description: "Verifica a saúde da aplicação e conexão com banco de dados.",
+          security: [],
+          responses: {
+            200: { description: "Sistema operacional", content: { "application/json": {} } },
+            503: { description: "Serviço indisponível (banco fora do ar)" },
+          },
+        },
       }
     )
     .get(
@@ -56,6 +66,12 @@ export default function registerHealthRoutes(app: RouteApp) {
       {
         beforeHandle: healthRateLimit,
         authRequired: false,
+        detail: {
+          tags: ["System"],
+          summary: "Ping",
+          description: "Resposta rápida para load balancers.",
+          security: [],
+        },
       }
     );
 

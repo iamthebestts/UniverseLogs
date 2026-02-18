@@ -17,6 +17,8 @@ export const env = validateEnv(
         // Database
         DATABASE_URL: z.string("Database URL is required").min(1),
         RUN_MIGRATE: envBoolean(true),
+        DB_MAX_CONNECTIONS: z.coerce.number().default(10),
+        DB_IDLE_TIMEOUT: z.coerce.number().default(20),
 
         // API
         PORT: z.coerce.number().default(3000),

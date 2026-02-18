@@ -2,12 +2,21 @@ import { env } from "@/env";
 import { edenTreaty } from "@elysiajs/eden";
 import chalk from "chalk";
 import { Elysia } from "elysia";
+import { cors } from "@elysiajs/cors";
+import { swagger } from "@elysiajs/swagger";
+import { websocket } from "@elysiajs/websocket";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { getAuthStrategy } from "./auth/strategies";
 import type { AuthResult } from "./auth/types";
 import { setupErrorHandling } from "./handlers/error-handler";
+import { sql } from "@/db/client";
+import { securityHeaders } from "./plugins/security";
+import { requestLogger } from "./plugins/logger";
+import { logger } from "@/core/logger";
+import { logBuffer } from "@/core/log-buffer";
+import { registerRealtime } from "./websocket/realtime.ws";
 
 import { fileURLToPath } from "node:url";
 
@@ -22,6 +31,8 @@ const createApp = () => new Elysia();
 export type App = ReturnType<typeof createApp>;
 
 type RouteRegister = (app: App) => void | Elysia;
+
+
 
 type RouteOptionsWithAuth = {
   authRequired?: boolean;
@@ -97,20 +108,18 @@ const loadRoutes = async (app: App) => {
   }
 
   const authEnabled = env.USE_AUTH === true;
-  console.log(
-    chalk.blue(`[auth] autenticação global ${authEnabled ? "ATIVADA" : "DESATIVADA"}`)
-  );
+  logger.info(`[auth] autenticação global ${authEnabled ? "ATIVADA" : "DESATIVADA"}`);
 
   for (const file of routeFiles) {
     const filePath = join(ROUTES_DIR, file);
-    console.log(chalk.blue(`[routes] carregando ${filePath}`));
+    logger.debug(`[routes] carregando ${filePath}`);
 
     const url = pathToFileURL(filePath).href;
     const mod = await import(url);
     const register = mod.default as RouteRegister | undefined;
 
     if (typeof register !== "function") {
-      console.log(chalk.yellow(`[routes] aviso: ${filePath} não exporta função default`));
+      logger.warn(`[routes] aviso: ${filePath} não exporta função default`);
       continue;
     }
     // Record registrations made by the module on a proxy
@@ -251,10 +260,8 @@ const loadRoutes = async (app: App) => {
         (app as any)[method](fullPath, wrappedHandler, options);
       }
 
-      console.log(
-        chalk.green(
-          `[route] ${r.method} ${fullPath} (${type}) auth:${!authEnabled ? "off" : authRequired ? "on" : "off"}`
-        )
+      logger.info(
+        `[route] ${r.method} ${fullPath} (${type}) auth:${!authEnabled ? "off" : authRequired ? "on" : "off"}`
       );
     }
   }
@@ -269,13 +276,59 @@ const serviceMetaPlugin = (app: App) =>
 export const buildApp = async () => {
   const app = createApp();
 
+  app.use(requestLogger);
+  app.use(cors());
+  app.use(securityHeaders);
+  app.use(websocket());
+  app.use(
+    swagger({
+      path: "/docs",
+      documentation: {
+        info: {
+          title: "Logs API",
+          version: process.env.npm_package_version ?? "dev",
+          description: "API de ingestão e consulta de logs multi-tenant com isolamento por UniverseId.",
+        },
+        tags: [
+          { name: "Logs", description: "Ingestão e recuperação de logs" },
+          { name: "Universes", description: "Gestão de Universos (Tenants)" },
+          { name: "API Keys", description: "Gestão de chaves de acesso" },
+          { name: "System", description: "Monitoramento e status" },
+          { name: "Internal", description: "Rotas administrativas internas (Master Key)" },
+        ],
+        components: {
+          securitySchemes: {
+            ApiKeyAuth: {
+              type: "apiKey",
+              name: "x-api-key",
+              in: "header",
+              description: "Chave de acesso padrão para clientes (jogos/apps)",
+            },
+            MasterKeyAuth: {
+              type: "apiKey",
+              name: "x-master-key",
+              in: "header",
+              description: "Chave mestra para operações administrativas internas",
+            },
+          },
+        },
+        security: [{ ApiKeyAuth: [] }],
+      },
+      swaggerOptions: {
+        persistAuthorization: true,
+        displayRequestDuration: true,
+        docExpansion: "list",
+      },
+    })
+  );
   app.use(serviceMetaPlugin);
   setupErrorHandling(app);
 
   await loadRoutes(app);
+  registerRealtime(app);
 
   if (((app as any).routes ?? []).length === 0) {
-    console.log(chalk.yellow("[routes] Nenhuma rota registrada — endpoints retornarão 404"));
+    logger.warn("[routes] Nenhuma rota registrada — endpoints retornarão 404");
   }
 
   return app;
@@ -285,9 +338,20 @@ export const startServer = async () => {
   const app = await buildApp();
 
   const { PORT: port, HOST: hostname } = env;
-  app.listen({ port, hostname }, () => {
-    console.log(chalk.green(`[server] HTTP server listening on ${hostname}:${port}`));
+  const server = app.listen({ port, hostname }, () => {
+    logger.info(`[server] HTTP server listening on ${hostname}:${port}`);
   });
+
+  const shutdown = async () => {
+    logger.warn("[server] Shutting down...");
+    await logBuffer.stop(); // Flush remaining logs
+    await sql.end({ timeout: 5 });
+    await server.stop();
+    process.exit(0);
+  };
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 
   return app;
 };

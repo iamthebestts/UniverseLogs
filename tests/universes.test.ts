@@ -103,7 +103,7 @@ describe("Universes Service & Routes", () => {
   });
 
   it("public creation: creates universe and returns api key", async () => {
-    vi.mocked(validateApiKey).mockResolvedValue({ universeId: BigInt(1) });
+    (validateApiKey as any).mockResolvedValue({ universeId: BigInt(1) });
     const app = await buildApp();
     const res = await app.handle(
       new Request("http://localhost/api/universes", {
@@ -172,7 +172,7 @@ describe("Universes Service & Routes", () => {
   it("internal creation fails when FETCH_ROBLOX_API=false and no manual data", async () => {
     env.FETCH_ROBLOX_API = false;
     // Make service throw for missing metadata
-    vi.mocked(createUniverse).mockRejectedValueOnce(new Error("FETCH_ROBLOX_API desabilitado e metadados ausentes; forneça nome e dados."));
+    (createUniverse as any).mockRejectedValueOnce(new Error("FETCH_ROBLOX_API desabilitado e metadados ausentes; forneça nome e dados."));
     const app = await buildApp();
     const res = await app.handle(
       new Request("http://localhost/internal/universes/create", {
