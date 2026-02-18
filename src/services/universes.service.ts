@@ -1,7 +1,7 @@
 import { db } from "@/db/client";
 import { api_keys as apiKeys, games, logs } from "@/db/schema";
 import { env } from "@/env";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 export type UniverseMetadata = {
   name: string;
@@ -51,13 +51,11 @@ export async function createUniverse(
   manual?: UniverseMetadata
 ): Promise<UniverseRecord> {
   const fetched = await fetchRobloxUniverse(universeId);
-  const meta: UniverseMetadata | undefined = fetched ?? manual;
-
-  if (!meta) {
-    throw new Error(
-      "FETCH_ROBLOX_API desabilitado e metadados ausentes; forneça nome e dados."
-    );
-  }
+  const meta: UniverseMetadata = fetched ?? manual ?? {
+    name: `Universe ${universeId}`,
+    description: "Criado automaticamente",
+    extra: { source: "auto_fallback" }
+  };
 
   const [record] = await db
     .insert(games)
@@ -171,6 +169,7 @@ export async function listUniverseLogs(universeId: bigint, limit = 10) {
     .select()
     .from(logs)
     .where(eq(logs.universe_id, universeId))
+    .orderBy(desc(logs.timestamp))
     .limit(limit);
   return records;
 }

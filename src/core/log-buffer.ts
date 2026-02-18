@@ -1,4 +1,5 @@
 import { db } from "@/db/client";
+import { env } from "@/env";
 import { logs } from "@/db/schema";
 import { logger } from "./logger";
 
@@ -10,9 +11,9 @@ export class LogBuffer {
   private maxBatchSize: number;
   private timer: Timer | null = null;
 
-  constructor(flushIntervalMs = 5000, maxBatchSize = 1000) {
-    this.flushInterval = flushIntervalMs;
-    this.maxBatchSize = maxBatchSize;
+  constructor() {
+    this.flushInterval = env.NODE_ENV === "test" ? 100 : 5000;
+    this.maxBatchSize = 1000;
     this.startTimer();
   }
 

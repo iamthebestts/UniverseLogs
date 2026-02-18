@@ -31,7 +31,9 @@ class Logger {
       service: "logs-api",
       ...meta,
     };
-    return JSON.stringify(entry);
+    return JSON.stringify(entry, (_, value) => 
+      typeof value === "bigint" ? value.toString() : value
+    );
   }
 
   private getColor(level: LogLevel) {

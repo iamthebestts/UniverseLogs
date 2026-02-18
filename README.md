@@ -1,9 +1,8 @@
 # Logs API 🚀
 
-![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
+![Build Status](https://img.shields.io/badge/tests-passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Tech Stack](https://img.shields.io/badge/stack-Bun_Elysia_Drizzle_Postgres-orange)
-![Version](https://img.shields.io/badge/version-1.0.50-blue)
 
 **API de Ingestão e Consulta de Logs Estruturados de Alta Performance.**
 
@@ -15,95 +14,115 @@ Projetada para resolver o problema de observabilidade em **Jogos Distribuídos (
 
 A solução utiliza um design focado em **baixa latência de escrita** (Write-Heavy) e **isolamento multi-tenant**.
 
+```mermaid
+flowchart LR
+
+  %% CLIENT
+  C[Game Clients<br/>Roblox · Unity · Apps]
+
+  %% GATEWAY
+  R[Router]
+  RL[Rate Limiter]
+  AUTH{API Key<br/>Validation}
+
+  %% ENGINE
+  LB[(In-Memory<br/>Log Buffer)]
+  WS[WebSocket<br/>Manager]
+
+  %% STORAGE
+  DB[(PostgreSQL<br/>JSONB)]
+
+  %% DASHBOARD
+  DASH[Live Dashboard]
+
+  %% FLOW
+  C -->|HTTPS| R
+  R --> RL --> AUTH
+  AUTH -->|Async Write| LB
+  AUTH -->|Realtime| WS
+  LB -->|Batch Insert 5s| DB
+  WS -->|WS Stream| DASH
+```
+
 ### Destaques Técnicos
 - **In-Memory Log Buffer:** Agrupamento de inserções em lotes (Batch Processing) para evitar gargalos no PostgreSQL.
 - **Realtime WebSockets:** Streaming de logs instantâneo para dashboards conectados.
-- **Fire-and-Forget:** Resposta imediata ao cliente enquanto a persistência ocorre em background.
-- **Multi-Tenant:** Isolamento rigoroso de dados por `UniverseId` (Tenant) via API Keys.
+- **Multi-Tenant Nativo:** Isolamento rigoroso de dados por `UniverseId` (Tenant) via hashes de API Keys.
+- **Segurança Pronta:** Rate limiting granular, security headers (OWASP) e Graceful Shutdown.
+- **Logger Estruturado:** Geração de logs JSON em produção para fácil integração com Datadog/ELK.
 
-### Fluxo de Dados
-```mermaid
-graph LR
-    Client([Game Client / App]) -->|POST /logs| API[Elysia API]
-    
-    subgraph "Server Core"
-        API -->|Validate| Auth[Auth Middleware]
-        Auth -->|Push| Buffer[In-Memory Log Buffer]
-        Worker((Background Worker)) -.->|Flush every 5s| Buffer
-        Auth -->|Publish| WS[WebSocket Manager]
-    end
-    
-    Buffer -->|Batch Insert| DB[(PostgreSQL)]
-    WS -->|Realtime Stream| Dash([Dashboard / UI])
+---
+
+## ⚡ Início Rápido (Local)
+
+### 1. Preparação
+- **Bun** instalado (`curl -fsSL https://bun.sh/install | bash`)
+- Instância do **PostgreSQL** ativa
+
+### 2. Instalação e Configuração
+```bash
+git clone https://github.com/iamthebestts/logs-api
+cd logs-api
+bun install
+cp .env.example .env
+```
+> Edite o `.env` e configure sua `DATABASE_URL` e `MASTER_KEY`.
+
+### 3. Execução
+```bash
+bun run dev   # Modo desenvolvimento (com logs coloridos)
+bun run start # Modo produção (performance máxima)
 ```
 
 ---
 
-## 📚 Documentação Detalhada
+## 🛠️ Primeiros Passos (Operacional)
 
-Para guias completos, consulte os arquivos na pasta `/docs`:
+Após subir a API, você precisa criar sua primeira chave de acesso:
 
-- 🌐 **[Guia de Rotas HTTP](./docs/rotas.md)**: Referência de todos os endpoints REST, parâmetros e autenticação.
-- 🔌 **[WebSocket Realtime](./docs/websocket.md)**: Como se conectar e interagir via socket para streaming em tempo real.
-- 🚀 **[Guia de Deployment](./docs/deploy.md)**: Instruções para Docker, Discloud, migrações de banco e CI/CD.
-- 📖 **Swagger UI**: Disponível em `/docs` com a aplicação rodando.
-
----
-
-## 🛠️ Stack Tecnológica
-
-| Componente | Tecnologia | Motivação |
-|------------|------------|-----------|
-| **Runtime** | [Bun](https://bun.sh) | Performance superior e ferramentas integradas. |
-| **Framework** | [ElysiaJS](https://elysiajs.com) | Otimizado para Bun, com suporte nativo a WebSockets e Swagger. |
-| **Database** | PostgreSQL | Armazenamento robusto com suporte a JSONB. |
-| **ORM** | [Drizzle](https://orm.drizzle.team) | Type-safe, leve e focado em performance. |
-| **Logger** | Custom Structured | Logs JSON em produção e formatados em desenvolvimento. |
-
----
-
-## ⚡ Início Rápido
-
-### Pré-requisitos
-- **Bun** instalado (`curl -fsSL https://bun.sh/install | bash`)
-- Instância do **PostgreSQL** ativa
-
-### Instalação e Execução
-1. **Clone o repositório:**
+1. **Crie uma API Key via Rota Interna:**
    ```bash
-   git clone https://github.com/iamthebestts/logs-api
-   cd logs-api
+   curl -X POST http://localhost:3000/internal/keys/register \
+     -H "Content-Type: application/json" \
+     -H "x-master-key: SUA_MASTER_KEY_AQUI" \
+     -d '{"universeId": "123456"}'
    ```
-2. **Instale as dependências:**
+2. **Use a chave retornada para enviar logs:**
    ```bash
-   bun install
-   ```
-3. **Configure as variáveis de ambiente:**
-   ```bash
-   cp .env.example .env
-   # Preencha DATABASE_URL e MASTER_KEY no .env
-   ```
-4. **Inicie o servidor:**
-   ```bash
-   bun run dev   # Modo desenvolvimento
-   bun run start # Modo produção
+   curl -X POST http://localhost:3000/api/logs \
+     -H "x-api-key: CHAVE_RETORNADA" \
+     -d '{"level": "info", "message": "API operacional!"}'
    ```
 
 ---
 
 ## 🧪 Qualidade e Testes
 
-O projeto segue rigorosos padrões de qualidade com testes automatizados cobrindo autenticação, lógica de buffer, rotas e websockets.
+O projeto possui uma suíte de testes robusta que garante a integridade dos fluxos críticos.
+
+- **Testes Unitários/Integração:** Validação de lógica com mocks.
+- **Testes E2E (End-to-End):** Validação real com banco de dados, testando autenticação, buffer e limites de taxa.
 
 ```bash
-bun test              # Rodar suíte de testes
+bun test              # Roda testes unitários
+bun run test:e2e      # Roda testes E2E (Requer banco 'logs_test')
 bun run test:coverage # Relatório de cobertura
 ```
 
 ---
 
-## 🔒 Segurança
+## 📚 Documentação Complementar
 
-- **Rate Limiting:** Proteção contra força bruta e spam de logs.
-- **Helmet Headers:** Implementação de headers de segurança OWASP.
-- **Graceful Shutdown:** Garante a integridade dos dados no buffer antes do desligamento.
+- 🌐 **[Guia de Rotas REST](./docs/rotas.md)**
+- 🔌 **[WebSocket Realtime](./docs/websocket.md)**
+- 🚀 **[Guia de Deployment](./docs/deploy.md)**
+- 📖 **Swagger UI**: Disponível em `/docs` com o servidor rodando.
+
+---
+
+## 📄 Licença
+
+Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
+
+---
+Desenvolvido por [iamthebestts](https://github.com/iamthebestts) 🚀

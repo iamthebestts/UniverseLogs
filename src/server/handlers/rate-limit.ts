@@ -185,20 +185,13 @@ export function rateLimitHandler(options: RateLimitOptions): Handler {
  */
 function extractAuthKey(ctx: any): string | null {
   try {
-    // Try to get from Elysia context headers
-    const headers = ctx.request?.headers || ctx.headers || {};
+    // Check for API key in headers
+    const apiKey = ctx.request.headers.get("x-api-key");
+    if (apiKey) return apiKey;
 
-    // Check for API key
-    const apiKey = headers["x-api-key"];
-    if (apiKey) {
-      return Array.isArray(apiKey) ? apiKey[0] : apiKey;
-    }
-
-    // Check for Master key
-    const masterKey = headers["x-master-key"];
-    if (masterKey) {
-      return Array.isArray(masterKey) ? masterKey[0] : masterKey;
-    }
+    // Check for Master key in headers
+    const masterKey = ctx.request.headers.get("x-master-key");
+    if (masterKey) return masterKey;
 
     return null;
   } catch {

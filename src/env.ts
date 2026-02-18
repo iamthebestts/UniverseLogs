@@ -33,6 +33,6 @@ export const env = validateEnv(
         MASTER_KEY: z.string("Master key is required").min(1),
 
         // OTHERS
-        NODE_ENV: z.enum(["dev", "prod"]).default("prod"),
+        NODE_ENV: z.enum(["dev", "prod", "test"]).default("prod"),
     }),
 )

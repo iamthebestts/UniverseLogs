@@ -1,24 +1,21 @@
+import { logBuffer } from "@/core/log-buffer";
+import { logger } from "@/core/logger";
+import { sql } from "@/db/client";
 import { env } from "@/env";
-import { edenTreaty } from "@elysiajs/eden";
-import chalk from "chalk";
-import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
+import { edenTreaty } from "@elysiajs/eden";
 import { swagger } from "@elysiajs/swagger";
 import { websocket } from "@elysiajs/websocket";
+import chalk from "chalk";
+import { Elysia } from "elysia";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { getAuthStrategy } from "./auth/strategies";
-import type { AuthResult } from "./auth/types";
 import { setupErrorHandling } from "./handlers/error-handler";
-import { sql } from "@/db/client";
-import { securityHeaders } from "./plugins/security";
 import { requestLogger } from "./plugins/logger";
-import { logger } from "@/core/logger";
-import { logBuffer } from "@/core/log-buffer";
+import { securityHeaders } from "./plugins/security";
 import { registerRealtime } from "./websocket/realtime.ws";
-
-import { fileURLToPath } from "node:url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const ROUTES_DIR = join(__dirname, "routes");
@@ -47,8 +44,8 @@ type RecordedRoute = {
 };
 
 /**
- * Custom route handler type that supports authRequired option and universeId context.
- * This is the type used by the route proxy, not the real Elysia app.
+ * Tipo personalizado de manipulador de rota que suporta a opção authRequired e contexto universeId.
+ * Este é o tipo utilizado pelo proxy de rotas, não pelo app Elysia real.
  */
 type RouteHandler<T = unknown> = (ctx: {
   body: T;
@@ -66,8 +63,8 @@ type RouteMethod = <T = unknown>(
 ) => RouteApp;
 
 /**
- * Type representing the route registration proxy.
- * Route files receive this proxy (not the real Elysia app) which supports authRequired.
+ * Tipo que representa o proxy de registro de rotas.
+ * Arquivos de rota recebem esse proxy (não o app Elysia real) que suporta authRequired.
  */
 export type RouteApp = {
   get: RouteMethod;
@@ -122,7 +119,7 @@ const loadRoutes = async (app: App) => {
       logger.warn(`[routes] aviso: ${filePath} não exporta função default`);
       continue;
     }
-    // Record registrations made by the module on a proxy
+
     const recorded: RecordedRoute[] = [];
 
     const proxy = {
@@ -158,48 +155,25 @@ const loadRoutes = async (app: App) => {
     const strategy = authEnabled ? getAuthStrategy(type) : undefined;
 
     const wrapWithAuth = (handler: any, authRequired = true) => {
-      if (!authEnabled || !authRequired) {
-        return handler;
-      }
-
-      if (!strategy) {
+      if (!authEnabled || !authRequired || !strategy) {
         return handler;
       }
 
       const headerName = strategy.keyHeaderName;
 
-      return (ctx: any) => {
+      return async (ctx: any) => {
         const headerValue = normalizeHeaderValue(
           ctx.request.headers.get(headerName)
         );
 
-        const headers: Record<string, string | string[] | undefined> = {
-          [headerName]: headerValue,
-        };
+        const authHeaders: Record<string, string | string[] | undefined> = {};
+        authHeaders[headerName] = headerValue;
 
-        const result = strategy.validate({ headers, type });
-        const handleUnauthorized = (error?: string) => {
-          ctx.set.status = 401;
-          return { error: error ?? "Unauthorized" };
-        };
-
-        const isPromise = (value: unknown): value is Promise<AuthResult> =>
-          typeof (value as Promise<AuthResult>)?.then === "function";
-
-        if (isPromise(result)) {
-          return result.then((authResult) => {
-            if (!authResult.valid) {
-              return handleUnauthorized(authResult.error);
-            }
-            if (authResult.universeId) {
-              (ctx as any).universeId = authResult.universeId;
-            }
-            return handler(ctx);
-          });
-        }
+        const result = await strategy.validate({ headers: authHeaders, type });
 
         if (!result.valid) {
-          return handleUnauthorized(result.error);
+          ctx.set.status = 401;
+          return { error: result.error ?? "Unauthorized" };
         }
 
         if (result.universeId) {
@@ -279,53 +253,60 @@ export const buildApp = async () => {
   app.use(requestLogger);
   app.use(cors());
   app.use(securityHeaders);
-  app.use(websocket());
-  app.use(
-    swagger({
-      path: "/docs",
-      documentation: {
-        info: {
-          title: "Logs API",
-          version: process.env.npm_package_version ?? "dev",
-          description: "API de ingestão e consulta de logs multi-tenant com isolamento por UniverseId.",
-        },
-        tags: [
-          { name: "Logs", description: "Ingestão e recuperação de logs" },
-          { name: "Universes", description: "Gestão de Universos (Tenants)" },
-          { name: "API Keys", description: "Gestão de chaves de acesso" },
-          { name: "System", description: "Monitoramento e status" },
-          { name: "Internal", description: "Rotas administrativas internas (Master Key)" },
-        ],
-        components: {
-          securitySchemes: {
-            ApiKeyAuth: {
-              type: "apiKey",
-              name: "x-api-key",
-              in: "header",
-              description: "Chave de acesso padrão para clientes (jogos/apps)",
-            },
-            MasterKeyAuth: {
-              type: "apiKey",
-              name: "x-master-key",
-              in: "header",
-              description: "Chave mestra para operações administrativas internas",
+
+  if (env.NODE_ENV !== "test") {
+    app.use(websocket());
+
+    app.use(
+      swagger({
+        path: "/docs",
+        documentation: {
+          info: {
+            title: "Logs API",
+            version: process.env.npm_package_version ?? "dev",
+            description: "API de ingestão e consulta de logs multi-tenant com isolamento por UniverseId.",
+          },
+          tags: [
+            { name: "Logs", description: "Ingestão e recuperação de logs" },
+            { name: "Universes", description: "Gestão de Universos (Tenants)" },
+            { name: "API Keys", description: "Gestão de chaves de acesso" },
+            { name: "System", description: "Monitoramento e status" },
+            { name: "Internal", description: "Rotas administrativas internas (Master Key)" },
+          ],
+          components: {
+            securitySchemes: {
+              ApiKeyAuth: {
+                type: "apiKey",
+                name: "x-api-key",
+                in: "header",
+                description: "Chave de acesso padrão para clientes (jogos/apps)",
+              },
+              MasterKeyAuth: {
+                type: "apiKey",
+                name: "x-master-key",
+                in: "header",
+                description: "Chave mestra para operações administrativas internas",
+              },
             },
           },
+          security: [{ ApiKeyAuth: [] }],
         },
-        security: [{ ApiKeyAuth: [] }],
-      },
-      swaggerOptions: {
-        persistAuthorization: true,
-        displayRequestDuration: true,
-        docExpansion: "list",
-      },
-    })
-  );
+        swaggerOptions: {
+          persistAuthorization: true,
+          displayRequestDuration: true,
+          docExpansion: "list",
+        },
+      })
+    );
+  }
   app.use(serviceMetaPlugin);
   setupErrorHandling(app);
 
   await loadRoutes(app);
-  registerRealtime(app);
+
+  if (env.NODE_ENV !== "test") {
+    registerRealtime(app);
+  }
 
   if (((app as any).routes ?? []).length === 0) {
     logger.warn("[routes] Nenhuma rota registrada — endpoints retornarão 404");
@@ -344,7 +325,7 @@ export const startServer = async () => {
 
   const shutdown = async () => {
     logger.warn("[server] Shutting down...");
-    await logBuffer.stop(); // Flush remaining logs
+    await logBuffer.stop();
     await sql.end({ timeout: 5 });
     await server.stop();
     process.exit(0);
