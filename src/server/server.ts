@@ -24,7 +24,7 @@ const createApp = () => new Elysia();
 
 export type App = ReturnType<typeof createApp>;
 
-type RouteRegister = (app: App) => undefined | Elysia;
+type RouteRegister = (app: App) => "api" | "internal" | undefined | Elysia;
 
 type RouteOptionsWithAuth = {
   authRequired?: boolean;
