@@ -126,3 +126,14 @@ Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
 
 ---
 Desenvolvido por [iamthebestts](https://github.com/iamthebestts) 🚀
+
+---
+
+<div align="center">
+  <img src="./images/Nexo.png" alt="Nexo+ Logo" width="120" />
+  <h3>🚀 Precisa de uma API ou Bot Personalizado?</h3>
+  <p>A <strong>Nexo+</strong> vai além do Roblox! Se você precisa de uma API específica, integração de sistemas ou um bot dedicado para automatizar seus processos, nós desenvolvemos a solução ideal para você.</p>
+  <p>Unimos criatividade e eficiência para oferecer serviços completos no <strong>Roblox Studio</strong> (builds e scripts) e desenvolvimento especializado de <strong>APIs e Bots</strong> sob medida.</p>
+  <p><strong>Transforme sua ideia em realidade agora:</strong><br/>
+  👉 <a href="https://discord.gg/EPucmXpDQR">https://discord.gg/EPucmXpDQR</a></p>
+</div>

@@ -12,6 +12,7 @@ coverage/
 *.log
 tests/
 docs/
+images/
 .serena/
 e2e-tests/
 *.md
