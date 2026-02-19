@@ -71,7 +71,10 @@ export default function registerUniverseRoutes(app: RouteApp) {
         key = created.key;
       }
 
-      const out = serialize({ universe, key }) as { universe: Record<string, unknown>; key?: string };
+      const out = serialize({ universe, key }) as {
+        universe: Record<string, unknown>;
+        key?: string;
+      };
       if (out.universe) out.universe = normalizeUniverse(out.universe);
       return out;
     },

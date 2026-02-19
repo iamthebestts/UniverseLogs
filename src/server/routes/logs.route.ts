@@ -27,8 +27,7 @@ function normalizeLogResponse(log: Record<string, unknown>) {
     ...log,
     topic: log.topic ?? null,
     metadata: log.metadata ?? {},
-    timestamp:
-      log.timestamp != null ? log.timestamp : new Date().toISOString(),
+    timestamp: log.timestamp != null ? log.timestamp : new Date().toISOString(),
   };
 }
 
