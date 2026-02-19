@@ -93,4 +93,109 @@ describe("Logs E2E", () => {
 
     expect(response.status).toBe(401);
   });
+
+  it("full REST flow: create, bulk, list with filters, cursor, count, delete, confirm", async () => {
+    const universeId = "987654321";
+    const createKeyRes = await app.handle(
+      new Request("http://localhost/internal/keys/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-master-key": env.MASTER_KEY,
+        },
+        body: JSON.stringify({ universeId }),
+      }),
+    );
+    expect(createKeyRes.status).toBe(200);
+    const { key: apiKey } = await createKeyRes.json();
+    expect(apiKey).toBeDefined();
+
+    const base = "http://localhost";
+    const headers = (h: Record<string, string>) => ({
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      ...h,
+    });
+
+    await app.handle(
+      new Request(`${base}/api/logs`, {
+        method: "POST",
+        headers: headers({}),
+        body: JSON.stringify({
+          level: "info",
+          message: "REST flow single",
+          topic: "e2e-flow",
+        }),
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 500));
+
+    const bulkRes = await app.handle(
+      new Request(`${base}/api/logs/bulk`, {
+        method: "POST",
+        headers: headers({}),
+        body: JSON.stringify({
+          logs: [
+            { level: "warn", message: "Bulk 1", topic: "e2e-flow" },
+            { level: "error", message: "Bulk 2", topic: "e2e-flow" },
+          ],
+        }),
+      }),
+    );
+    if (bulkRes.status !== 200) {
+      const errBody = await bulkRes.json().catch(() => ({}));
+      throw new Error(`POST /api/logs/bulk failed: ${bulkRes.status} ${JSON.stringify(errBody)}`);
+    }
+    const bulkData = await bulkRes.json();
+    expect(bulkData.logs).toHaveLength(2);
+    await new Promise((r) => setTimeout(r, 500));
+
+    const listRes = await app.handle(
+      new Request(`${base}/api/logs?level=info&topic=e2e-flow&limit=5`, {
+        headers: { "x-api-key": apiKey },
+      }),
+    );
+    expect(listRes.status).toBe(200);
+    const listData = await listRes.json();
+    expect(Array.isArray(listData.logs)).toBe(true);
+    const firstPageLength = listData.logs.length;
+
+    if (firstPageLength > 0 && listData.nextCursor) {
+      const cursorRes = await app.handle(
+        new Request(
+          `${base}/api/logs?topic=e2e-flow&cursor_ts=${listData.nextCursor.timestamp}&cursor_id=${listData.nextCursor.id}&limit=5`,
+          { headers: { "x-api-key": apiKey } },
+        ),
+      );
+      expect(cursorRes.status).toBe(200);
+    }
+
+    const countRes = await app.handle(
+      new Request(`${base}/api/logs/count`, {
+        headers: { "x-api-key": apiKey },
+      }),
+    );
+    expect(countRes.status).toBe(200);
+    const countData = await countRes.json();
+    expect(typeof countData.total).toBe("number");
+    expect(countData.byLevel).toBeDefined();
+
+    const oldDate = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const deleteRes = await app.handle(
+      new Request(`${base}/api/logs?olderThan=${encodeURIComponent(oldDate)}`, {
+        method: "DELETE",
+        headers: { "x-api-key": apiKey },
+      }),
+    );
+    expect(deleteRes.status).toBe(200);
+    const deleteData = await deleteRes.json();
+    expect(typeof deleteData.deleted).toBe("number");
+
+    const countAfterRes = await app.handle(
+      new Request(`${base}/api/logs/count`, {
+        headers: { "x-api-key": apiKey },
+      }),
+    );
+    expect(countAfterRes.status).toBe(200);
+  });
 });

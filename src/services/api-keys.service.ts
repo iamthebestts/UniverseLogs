@@ -73,7 +73,11 @@ export async function validateApiKey(key: string): Promise<{ universeId: bigint 
 
   await db.update(apiKeys).set({ last_used_at: new Date() }).where(eq(apiKeys.id, record.id));
 
-  return { universeId: record.universe_id };
+  const universeId =
+    typeof record.universe_id === "bigint"
+      ? record.universe_id
+      : BigInt(record.universe_id as string | number);
+  return { universeId };
 }
 
 /**

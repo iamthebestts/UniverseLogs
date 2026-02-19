@@ -7,18 +7,39 @@ type LogInsert = typeof logs.$inferInsert;
 
 export class LogBuffer {
   private queue: LogInsert[] = [];
-  private flushInterval: number;
   private maxBatchSize: number;
   private timer: Timer | null = null;
+  private manualInterval: number | null = null;
+
+  private get isTest() {
+    return (
+      process.env.NODE_ENV === "test" ||
+      !!process.env.BUN_TEST ||
+      !!process.env.VITEST ||
+      (typeof env !== "undefined" && env.NODE_ENV === "test")
+    );
+  }
+
+  private get flushInterval() {
+    if (this.manualInterval !== null) return this.manualInterval;
+    return this.isTest ? 100 : 5000;
+  }
+
+  public setFlushInterval(ms: number) {
+    this.manualInterval = ms;
+    this.startTimer();
+    logger.info(`[buffer] Flush interval updated to ${ms}ms (isTest: ${this.isTest})`);
+  }
 
   constructor() {
-    this.flushInterval = env.NODE_ENV === "test" ? 100 : 5000;
     this.maxBatchSize = 1000;
+    // No logging here to avoid singleton early-init noise if logger isn't ready
     this.startTimer();
   }
 
   public add(log: LogInsert) {
     this.queue.push(log);
+
     if (this.queue.length >= this.maxBatchSize) {
       this.flush();
     }

@@ -13,23 +13,18 @@ import {
 } from "@/server/errors/types";
 
 /** Stack/details only in DEV and TEST; PROD never exposes them (safe against information disclosure). */
-const showDetailedErrors = env.NODE_ENV === "dev" || env.NODE_ENV === "test";
+const getShowDetailedErrors = () => env.NODE_ENV === "dev" || env.NODE_ENV === "test";
 
 /**
  * Logger instance for error handling
  * In production, this would integrate with Winston/Pino
  */
 class ErrorLogger {
-  private showDetails: boolean;
-
-  constructor(showDetails: boolean = showDetailedErrors) {
-    this.showDetails = showDetails;
-  }
-
   /**
    * Logs an error with structured context
    */
   logError(context: ErrorLogContext): void {
+    const showDetails = getShowDetailedErrors();
     const { statusCode, code, message, path, method, requestId, timestamp, stack, originalError } =
       context;
 
@@ -50,7 +45,7 @@ class ErrorLogger {
     console[logLevel === "error" ? "error" : "warn"](logMessage);
 
     // Log detailed context only in dev/test or for server errors (no stack in prod logs)
-    if (this.showDetails || statusCode >= 500) {
+    if (showDetails || statusCode >= 500) {
       const details: Record<string, unknown> = {
         timestamp,
         code,
@@ -61,11 +56,11 @@ class ErrorLogger {
         message,
       };
 
-      if (this.showDetails && stack) {
+      if (showDetails && stack) {
         details.stack = stack;
       }
 
-      if (originalError && this.showDetails) {
+      if (originalError && showDetails) {
         details.originalError = {
           name: originalError.name,
           message: originalError.message,
@@ -104,12 +99,14 @@ const logger = new ErrorLogger();
  * ```
  */
 export function setupErrorHandler(app: any) {
+  const showDetailedErrors = getShowDetailedErrors();
   logger.logInfo("Error handler initialized", {
     environment: env.NODE_ENV,
     detailedErrors: showDetailedErrors,
   });
 
   app.onError(({ code: elyCode, error, request, set, path }: any) => {
+    const showDetailedErrors = getShowDetailedErrors();
     const method = request.method as string;
     const requestId = (request.headers.get("x-request-id") as string) ?? undefined;
     const timestamp = new Date().toISOString();

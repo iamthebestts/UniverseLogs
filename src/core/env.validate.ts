@@ -1,9 +1,6 @@
 import chalk from "chalk";
 import type { ZodObject, ZodRawShape, z } from "zod";
 
-const x = chalk.red("✖");
-const w = chalk.yellow("▲");
-
 export function validateEnv<T extends ZodRawShape>(schema: ZodObject<T>) {
   const parsed = schema.safeParse(process.env);
 

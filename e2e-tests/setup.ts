@@ -3,6 +3,9 @@ import { logBuffer } from "@/core/log-buffer";
 import { sql } from "@/db/client";
 import { resetAllRateLimits } from "@/server/handlers/rate-limit";
 
+// Ensure we are in test mode even if singleton was initialized early
+logBuffer.setFlushInterval(100);
+
 /**
  * Limpa o banco de dados de teste antes de cada teste.
  * Isso garante que os testes sejam isolados e não dependam dos dados uns dos outros.

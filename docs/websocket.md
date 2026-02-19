@@ -48,11 +48,26 @@ Mantém a conexão ativa e testa a latência.
 - **Resposta**: `{ "type": "PONG", "timestamp": "..." }`
 
 ### 2. QUERY_LOGS
-Solicita logs históricos do universo atual via socket.
-- **Payload**: `{ "limit": number }` (Max: 100).
-- **Resposta**: `{ "type": "LOGS_QUERY_RESULT", "logs": [...] }`
+Lista logs com os mesmos filtros do `GET /api/logs` (level, topic, from, to, cursor, limit).
+- **Payload**: `{ "level"?, "topic"?, "from"?, "to"?, "cursor_ts"?, "cursor_id"?, "limit"? }` (limit máx. 100).
+- **Resposta**: `{ "type": "LOGS_QUERY_RESULT", "logs": [...], "nextCursor"?: { "timestamp", "id" } }`
 
-### 3. SEND_LOG
+### 3. QUERY_LOGS_COUNT
+Contagem total e por level (equivalente a `GET /api/logs/count`).
+- **Payload**: `{ "from"?, "to"? }` (datas ISO).
+- **Resposta**: `{ "type": "LOGS_COUNT_RESULT", "total", "byLevel": { "info", "warn", "error" } }`
+
+### 4. DELETE_LOGS
+Remove logs por `olderThan` e filtros opcionais (equivalente a `DELETE /api/logs`).
+- **Payload**: `{ "olderThan": "ISO date", "level"?, "topic"? }`
+- **Resposta**: `{ "type": "LOGS_DELETED", "deleted": number }`
+
+### 5. SEND_LOGS_BULK
+Cria vários logs em lote (equivalente a `POST /api/logs/bulk`).
+- **Payload**: `{ "logs": [{ "level", "message", "metadata"?, "topic"? }, ...] }` (máx. 100 itens).
+- **Resposta**: `{ "type": "LOGS_BULK_CREATED", "count": number }`
+
+### 6. SEND_LOG
 Cria um novo log diretamente via WebSocket.
 - **Payload**: Mesmo objeto do `POST /api/logs`.
 - **Resposta**: `{ "type": "LOG_CREATED", "id": "uuid" }`

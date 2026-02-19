@@ -51,5 +51,14 @@ export const logs = pgTable(
     universeIdx: index("logs_universe_idx").on(table.universe_id),
     timeIdx: index("logs_time_idx").on(table.timestamp),
     universeTimeIdx: index("logs_universe_time_idx").on(table.universe_id, table.timestamp),
+    // Cursor-based pagination: ORDER BY timestamp DESC, id DESC
+    universeTimestampIdIdx: index("logs_universe_timestamp_id_idx").on(
+      table.universe_id,
+      table.timestamp,
+      table.id,
+    ),
+    // Filtros por level e topic
+    universeLevelIdx: index("logs_universe_level_idx").on(table.universe_id, table.level),
+    universeTopicIdx: index("logs_universe_topic_idx").on(table.universe_id, table.topic),
   }),
 );

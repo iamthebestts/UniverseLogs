@@ -37,10 +37,59 @@ Base: `/api`
 
 Base: `/api`. Todas exigem `X-API-Key`; o `universe_id` é resolvido pela chave.
 
-| Método | Caminho     | Auth | Descrição |
-|--------|-------------|------|-----------|
-| POST   | `/logs`     | Sim  | Criar log |
-| GET    | `/logs/:id` | Sim  | Buscar log por ID (do tenant) |
+| Método | Caminho       | Auth | Descrição |
+|--------|---------------|------|-----------|
+| GET    | `/logs/count` | Sim  | Contagem total e por level (filtro opcional por data) |
+| GET    | `/logs`       | Sim  | Listar logs (filtros, paginação cursor-based) |
+| GET    | `/logs/:id`   | Sim  | Buscar log por ID (do tenant) |
+| POST   | `/logs/bulk`  | Sim  | Criar logs em lote (até 100 itens) |
+| POST   | `/logs`       | Sim  | Criar log |
+| DELETE | `/logs`       | Sim  | Remover logs (por olderThan, level/topic opcionais) |
+
+### GET /api/logs/count
+
+**Query (opcional):**
+
+| Parâmetro | Tipo   | Descrição        |
+|-----------|--------|------------------|
+| from      | string | Data ISO início  |
+| to        | string | Data ISO fim     |
+
+**Resposta 200:** `{ total: number, byLevel: { info, warn, error } }`.
+
+### GET /api/logs
+
+**Query:**
+
+| Parâmetro  | Tipo   | Descrição                          |
+|------------|--------|------------------------------------|
+| level      | string | `info` \| `warn` \| `error`       |
+| topic      | string | Filtro por topic                  |
+| from       | string | Data ISO início                    |
+| to         | string | Data ISO fim                       |
+| cursor_ts  | string | Cursor: timestamp do último item  |
+| cursor_id  | string | Cursor: id do último item         |
+| limit      | string | 1–100 (default 20)                |
+
+**Resposta 200:** `{ logs: LogResponse[], nextCursor?: { timestamp, id } }`. Ordenação: `timestamp DESC`, `id DESC`.
+
+### POST /api/logs/bulk
+
+**Body (JSON):** `{ logs: [{ level, message, metadata?, topic? }, ...] }` — mesmo formato do POST único. Máximo 100 itens.
+
+**Resposta 200:** `{ logs: LogResponse[] }` (registros inseridos, na mesma ordem).
+
+### DELETE /api/logs
+
+**Query:**
+
+| Parâmetro | Tipo   | Obrigatório | Descrição                          |
+|-----------|--------|-------------|------------------------------------|
+| olderThan | string | Sim         | Data ISO; logs mais antigos removidos |
+| level     | string | Não         | `info` \| `warn` \| `error`        |
+| topic     | string | Não         | Filtro por topic                   |
+
+**Resposta 200:** `{ deleted: number }`.
 
 ### POST /api/logs
 

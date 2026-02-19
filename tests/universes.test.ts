@@ -1,42 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { db } from "@/db/client";
 
-// Mock db FIRST before importing any services
-vi.mock("@/db/client", () => ({
-  db: {
-    insert: vi.fn().mockReturnThis(),
-    values: vi.fn().mockReturnThis(),
-    select: vi.fn().mockReturnThis(),
-    from: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockReturnThis(),
-    returning: vi.fn().mockResolvedValue([
-      {
-        universe_id: BigInt(123),
-        name: "Test Universe",
-        description: "Desc",
-        metadata: {},
-        is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-    ]),
-    update: vi.fn().mockReturnThis(),
-    set: vi.fn().mockReturnThis(),
-    onConflictDoNothing: vi.fn().mockReturnThis(),
-    transaction: vi.fn((cb) =>
-      cb({
-        insert: vi.fn().mockReturnThis(),
-        values: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([{ universe_id: BigInt(123) }]),
-      }),
-    ),
-  },
-}));
-
-// Mock env before other imports
+// Mock env FIRST before importing any services
 vi.mock("@/env", () => ({
   env: {
     NODE_ENV: "test",
@@ -48,38 +13,17 @@ vi.mock("@/env", () => ({
   },
 }));
 
-// Mock api-keys service
+// Mock services that we want to isolate routes from
 vi.mock("@/services/api-keys.service", () => ({
-  validateApiKey: vi.fn().mockResolvedValue({ universeId: BigInt(1) }),
-  createApiKey: vi.fn().mockResolvedValue({ key: "mock-key" }),
+  validateApiKey: vi.fn(),
+  createApiKey: vi.fn(),
 }));
 
-// Mock universes service (full mock override)
 vi.mock("@/services/universes.service", () => ({
-  createUniverse: vi.fn().mockResolvedValue({
-    universe_id: BigInt(123),
-    name: "Test Universe",
-    description: "Desc",
-    metadata: {},
-    is_active: true,
-    created_at: new Date(),
-    updated_at: new Date(),
-  }),
-  revokeUniverse: vi.fn().mockResolvedValue(undefined),
-  getUniverse: vi.fn().mockResolvedValue({
-    universe_id: BigInt(123),
-    name: "Test Universe",
-    description: "Desc",
-    metadata: {},
-    is_active: true,
-    created_at: new Date(),
-    updated_at: new Date(),
-  }),
-  listUniverseLogs: vi
-    .fn()
-    .mockResolvedValue([
-      { id: "1", level: "info", message: "Universe created", universe_id: BigInt(123) },
-    ]),
+  createUniverse: vi.fn(),
+  revokeUniverse: vi.fn(),
+  getUniverse: vi.fn(),
+  listUniverseLogs: vi.fn(),
   ensureUniverseExists: vi.fn(),
 }));
 
@@ -93,15 +37,58 @@ import {
   revokeUniverse,
 } from "@/services/universes.service";
 
+const MOCK_UNIVERSE = {
+  universe_id: "123",
+  name: "Test Universe",
+  description: "Desc",
+  metadata: {},
+  is_active: true,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+};
+
 describe("Universes Service & Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     env.MASTER_KEY = "test-master-key";
     env.AUTO_CREATE_UNIVERSE = true;
     env.FETCH_ROBLOX_API = true;
+
+    // Use spies for db to avoid leakage
+    const mockChain = {
+      values: vi.fn().mockReturnThis(),
+      returning: vi.fn().mockResolvedValue([MOCK_UNIVERSE]),
+      onConflictDoNothing: vi.fn().mockReturnThis(),
+      set: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+    };
+
+    vi.spyOn(db, "insert").mockReturnValue(mockChain as any);
+    vi.spyOn(db, "select").mockReturnValue(mockChain as any);
+    vi.spyOn(db, "update").mockReturnValue(mockChain as any);
+    vi.spyOn(db, "delete").mockReturnValue(mockChain as any);
+
+    vi.spyOn(db, "transaction").mockImplementation((cb) =>
+      cb({
+        insert: vi.fn().mockReturnValue(mockChain),
+        select: vi.fn().mockReturnValue(mockChain),
+        update: vi.fn().mockReturnValue(mockChain),
+        delete: vi.fn().mockReturnValue(mockChain),
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("internal creation: creates with UniverseId when FETCH_ROBLOX_API=true", async () => {
+    (createUniverse as any).mockResolvedValue({
+      ...MOCK_UNIVERSE,
+      universe_id: BigInt(123),
+    });
     const app = await buildApp();
     const res = await app.handle(
       new Request("http://localhost/internal/universes/create", {
@@ -121,6 +108,12 @@ describe("Universes Service & Routes", () => {
 
   it("public creation: creates universe and returns api key", async () => {
     (validateApiKey as any).mockResolvedValue({ universeId: BigInt(1) });
+    (createUniverse as any).mockResolvedValue({
+      ...MOCK_UNIVERSE,
+      universe_id: "456",
+    });
+    (createApiKey as any).mockResolvedValue({ key: "mock-key" });
+
     const app = await buildApp();
     const res = await app.handle(
       new Request("http://localhost/api/universes", {
@@ -140,6 +133,9 @@ describe("Universes Service & Routes", () => {
   });
 
   it("public revoke: revokes universe and keys", async () => {
+    (validateApiKey as any).mockResolvedValue({ universeId: BigInt(1) });
+    (revokeUniverse as any).mockResolvedValue(undefined);
+
     const app = await buildApp();
     const res = await app.handle(
       new Request("http://localhost/api/universes/456/revoke", {
@@ -154,6 +150,13 @@ describe("Universes Service & Routes", () => {
   });
 
   it("public consult: returns universe and logs", async () => {
+    (validateApiKey as any).mockResolvedValue({ universeId: BigInt(1) });
+    (getUniverse as any).mockResolvedValue({
+      ...MOCK_UNIVERSE,
+      universe_id: "123",
+    });
+    (listUniverseLogs as any).mockResolvedValue([]);
+
     const app = await buildApp();
     const res = await app.handle(
       new Request("http://localhost/api/universes/123", {
@@ -171,6 +174,13 @@ describe("Universes Service & Routes", () => {
 
   it("creation without Roblox fetch requires manual data when FETCH_ROBLOX_API=false", async () => {
     env.FETCH_ROBLOX_API = false;
+    (validateApiKey as any).mockResolvedValue({ universeId: BigInt(1) });
+    (createUniverse as any).mockResolvedValue({
+      ...MOCK_UNIVERSE,
+      universe_id: "789",
+    });
+    (createApiKey as any).mockResolvedValue({ key: "k" });
+
     const app = await buildApp();
     const res = await app.handle(
       new Request("http://localhost/api/universes", {

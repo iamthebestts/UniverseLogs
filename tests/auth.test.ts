@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { db } from "@/db/client";
 
 // 1. Mock modules BEFORE importing anything else
 vi.mock("@/env", () => ({
@@ -20,11 +21,6 @@ vi.mock("@/services/api-keys.service", () => ({
   countActiveApiKeys: vi.fn().mockResolvedValue(0),
 }));
 
-// Mock DB so /api/health checkDatabase() succeeds in tests
-vi.mock("@/db/client", () => ({
-  db: { execute: vi.fn().mockResolvedValue(undefined) },
-}));
-
 // 2. Import dependencies
 import { env } from "@/env";
 import { buildApp } from "@/server/server";
@@ -35,6 +31,13 @@ describe("Authentication System", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     env.MASTER_KEY = "test-master-key";
+
+    // Spy on DB instead of global mock
+    vi.spyOn(db, "execute").mockResolvedValue([] as any);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe("API and Internal protection", () => {
