@@ -69,6 +69,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Discloud Deploy
-        uses: discloud/deploy-action@v1
+        uses: discloud/deploy-action@v2
         with:
           token: ${{ secrets.DISCLOUD_TOKEN }}
+          app_id: logs-api
