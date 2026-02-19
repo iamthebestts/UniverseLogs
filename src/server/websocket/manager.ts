@@ -26,7 +26,9 @@ class WebSocketManager {
     }
 
     this.tenants.get(universeId)!.add(ws);
-    logger.debug(`[ws-manager] Universe ${universeId}: Client joined. Total: ${this.tenants.get(universeId)!.size}`);
+    logger.debug(
+      `[ws-manager] Universe ${universeId}: Client joined. Total: ${this.tenants.get(universeId)!.size}`,
+    );
   }
 
   remove(ws: WSLike) {
@@ -54,7 +56,9 @@ class WebSocketManager {
       try {
         ws.send(data);
       } catch (error) {
-        logger.error(`[ws-manager] Broadcast failed for a client in universe ${universeId}`, { error });
+        logger.error(`[ws-manager] Broadcast failed for a client in universe ${universeId}`, {
+          error,
+        });
       }
     }
   }

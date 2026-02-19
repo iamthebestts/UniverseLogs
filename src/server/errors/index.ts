@@ -4,23 +4,30 @@
  */
 
 export {
-  // Error classes
-  ApiError, AuthError,
-  AuthorizationError, ConflictError,
-  DatabaseError,
-  // Enums and interfaces
-  ErrorCode, NotFoundError, RateLimitError, ServiceUnavailableError, ValidationError,
-  // Type guards
-  isApiError, type ApiErrorData,
-  type ErrorLogContext
-} from "./types";
-
-export {
   ErrorLogger,
   // Logger instance
   logger,
   // Handler setup
-  setupErrorHandler, setupErrorHandling, setupRequestIdMiddleware,
-  setupRequestLoggingMiddleware
+  setupErrorHandler,
+  setupErrorHandling,
+  setupRequestIdMiddleware,
+  setupRequestLoggingMiddleware,
 } from "../handlers/error-handler";
-
+export {
+  // Error classes
+  ApiError,
+  type ApiErrorData,
+  AuthError,
+  AuthorizationError,
+  ConflictError,
+  DatabaseError,
+  // Enums and interfaces
+  ErrorCode,
+  type ErrorLogContext,
+  // Type guards
+  isApiError,
+  NotFoundError,
+  RateLimitError,
+  ServiceUnavailableError,
+  ValidationError,
+} from "./types";

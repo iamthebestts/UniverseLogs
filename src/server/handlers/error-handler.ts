@@ -3,6 +3,7 @@
  * Captures, logs, and standardizes error responses
  */
 
+import chalk from "chalk";
 import { env } from "@/env";
 import {
   type ApiErrorData,
@@ -10,34 +11,27 @@ import {
   type ErrorLogContext,
   isApiError,
 } from "@/server/errors/types";
-import chalk from "chalk";
+
+/** Stack/details only in DEV and TEST; PROD never exposes them (safe against information disclosure). */
+const showDetailedErrors = env.NODE_ENV === "dev" || env.NODE_ENV === "test";
 
 /**
  * Logger instance for error handling
  * In production, this would integrate with Winston/Pino
  */
 class ErrorLogger {
-  private isDevelopment: boolean;
+  private showDetails: boolean;
 
-  constructor(isDevelopment: boolean = env.NODE_ENV === "dev") {
-    this.isDevelopment = isDevelopment;
+  constructor(showDetails: boolean = showDetailedErrors) {
+    this.showDetails = showDetails;
   }
 
   /**
    * Logs an error with structured context
    */
   logError(context: ErrorLogContext): void {
-    const {
-      statusCode,
-      code,
-      message,
-      path,
-      method,
-      requestId,
-      timestamp,
-      stack,
-      originalError,
-    } = context;
+    const { statusCode, code, message, path, method, requestId, timestamp, stack, originalError } =
+      context;
 
     const logLevel = statusCode >= 500 ? "error" : "warn";
     const logPrefix = statusCode >= 500 ? chalk.red("[ERROR]") : chalk.yellow("[WARN]");
@@ -55,8 +49,8 @@ class ErrorLogger {
 
     console[logLevel === "error" ? "error" : "warn"](logMessage);
 
-    // Log detailed context in development or for server errors
-    if (this.isDevelopment || statusCode >= 500) {
+    // Log detailed context only in dev/test or for server errors (no stack in prod logs)
+    if (this.showDetails || statusCode >= 500) {
       const details: Record<string, unknown> = {
         timestamp,
         code,
@@ -67,19 +61,24 @@ class ErrorLogger {
         message,
       };
 
-      if (this.isDevelopment && stack) {
+      if (this.showDetails && stack) {
         details.stack = stack;
       }
 
-      if (originalError && this.isDevelopment) {
+      if (originalError && this.showDetails) {
         details.originalError = {
           name: originalError.name,
           message: originalError.message,
           stack: originalError.stack,
+          ...(originalError as any),
         };
       }
 
-      console[logLevel === "error" ? "error" : "warn"](details);
+      const safeDetails = JSON.parse(
+        JSON.stringify(details, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
+      );
+
+      console[logLevel === "error" ? "error" : "warn"](safeDetails);
     }
   }
 
@@ -96,13 +95,9 @@ const logger = new ErrorLogger();
 
 /**
  * Builds a standardized error response
+ * PROD: no details/stack. DEV/TEST: details and stack for debugging.
  */
-function buildErrorResponse(
-  error: unknown,
-  path?: string,
-  requestId?: string
-): ApiErrorData {
-  const isDevelopment = env.NODE_ENV === "dev";
+function buildErrorResponse(error: unknown, path?: string, requestId?: string): ApiErrorData {
   const timestamp = new Date().toISOString();
 
   if (isApiError(error)) {
@@ -113,7 +108,7 @@ function buildErrorResponse(
       timestamp,
       path: path ?? error.path,
       requestId: requestId ?? error.requestId,
-      details: isDevelopment ? error.details : undefined,
+      details: showDetailedErrors ? error.details : undefined,
     };
   }
 
@@ -121,7 +116,7 @@ function buildErrorResponse(
   if (error instanceof Error) {
     const statusCode = 500;
     const code = ErrorCode.INTERNAL_ERROR;
-    const message = isDevelopment ? error.message : "Internal server error";
+    const message = showDetailedErrors ? error.message : "Internal server error";
 
     return {
       code,
@@ -130,11 +125,11 @@ function buildErrorResponse(
       timestamp,
       path,
       requestId,
-      details: isDevelopment
+      details: showDetailedErrors
         ? {
-          name: error.name,
-          stack: error.stack,
-        }
+            name: error.name,
+            stack: error.stack,
+          }
         : undefined,
     };
   }
@@ -147,9 +142,7 @@ function buildErrorResponse(
     timestamp,
     path,
     requestId,
-    details: isDevelopment
-      ? { error: String(error) }
-      : undefined,
+    details: showDetailedErrors ? { error: String(error) } : undefined,
   };
 }
 
@@ -166,102 +159,98 @@ function buildErrorResponse(
 export function setupErrorHandler(app: any) {
   logger.logInfo("Error handler initialized", {
     environment: env.NODE_ENV,
-    detailedErrors: env.NODE_ENV === "dev",
+    detailedErrors: showDetailedErrors,
   });
 
-  app.onError(
-    ({ code: elyCode, error, request, set, path }: any) => {
-      const isDevelopment = env.NODE_ENV === "dev";
-      const method = request.method as string;
-      const requestId = request.headers.get("x-request-id") as string ?? undefined;
-      const timestamp = new Date().toISOString();
+  app.onError(({ code: elyCode, error, request, set, path }: any) => {
+    const method = request.method as string;
+    const requestId = (request.headers.get("x-request-id") as string) ?? undefined;
+    const timestamp = new Date().toISOString();
 
-      // Extract status code from error if it's ApiError
-      let statusCode = 500;
-      let errorCode = ErrorCode.INTERNAL_ERROR;
-      let errorMessage = "Internal server error";
-      let details: Record<string, unknown> | undefined;
-      let originalError: Error | undefined;
+    let statusCode = 500;
+    let errorCode = ErrorCode.INTERNAL_ERROR;
+    let errorMessage = "Internal server error";
+    let details: Record<string, unknown> | undefined;
+    let originalError: Error | undefined;
+    let retryAfter: number | undefined;
 
-      if (isApiError(error as any)) {
-        const apiErr = error as any;
-        statusCode = apiErr.statusCode;
-        errorCode = apiErr.code;
-        errorMessage = apiErr.message;
-        details = isDevelopment ? apiErr.details : undefined;
-      } else if (error instanceof SyntaxError) {
-        // Handle JSON parse errors
-        statusCode = 400;
-        errorCode = ErrorCode.INVALID_REQUEST;
-        errorMessage = "Invalid request format";
-        if (isDevelopment) {
-          details = { error: error.message };
-        }
-      } else if (error instanceof Error) {
-        statusCode = 500;
-        errorCode = ErrorCode.INTERNAL_ERROR;
-        errorMessage = isDevelopment ? error.message : "Internal server error";
-        originalError = error;
-        if (isDevelopment) {
-          details = {
-            name: error.name,
-            stack: error.stack,
-          };
-        }
+    if (isApiError(error as any)) {
+      const apiErr = error as any;
+      statusCode = apiErr.statusCode;
+      errorCode = apiErr.code;
+      errorMessage = apiErr.message;
+      retryAfter = apiErr.retryAfter;
+      details = showDetailedErrors ? apiErr.details : undefined;
+    } else if (error instanceof SyntaxError) {
+      statusCode = 400;
+      errorCode = ErrorCode.INVALID_REQUEST;
+      errorMessage = "Invalid request format";
+      if (showDetailedErrors) {
+        details = { error: error.message };
       }
-
-      // Handle Elysia-specific codes
-      if (elyCode === "VALIDATION") {
-        statusCode = 400;
-        errorCode = ErrorCode.VALIDATION_FAILED;
-        errorMessage = "Validation failed";
-        if (isDevelopment) {
-          details = { error };
-        }
-      } else if (elyCode === "NOT_FOUND") {
-        statusCode = 404;
-        errorCode = ErrorCode.NOT_FOUND;
-        errorMessage = "Endpoint not found";
+    } else if (error instanceof Error) {
+      statusCode = 500;
+      errorCode = ErrorCode.INTERNAL_ERROR;
+      errorMessage = showDetailedErrors ? error.message : "Internal server error";
+      originalError = error;
+      if (showDetailedErrors) {
+        details = {
+          name: error.name,
+          stack: error.stack,
+        };
       }
-
-      // Log the error
-      const logContext: ErrorLogContext = {
-        statusCode,
-        code: errorCode,
-        message: errorMessage,
-        path,
-        method,
-        requestId,
-        timestamp,
-        isDevelopment,
-        stack: error instanceof Error ? error.stack : undefined,
-        originalError: error instanceof Error ? error : undefined,
-      };
-
-      logger.logError(logContext);
-
-      // Build and set response
-      const errorResponse: ApiErrorData = {
-        code: errorCode,
-        message: errorMessage,
-        statusCode,
-        timestamp,
-        path,
-        requestId,
-        details,
-      };
-
-      set.status = statusCode;
-      set.headers["content-type"] = "application/json";
-
-      // Add Retry-After header for rate limit errors
-      if (errorCode === ErrorCode.RATE_LIMITED && details?.retryAfter) {
-        set.headers["retry-after"] = String(details.retryAfter);
-      }
-
-      return errorResponse;
     }
-  );
+
+    if (elyCode === "VALIDATION") {
+      statusCode = 400;
+      errorCode = ErrorCode.VALIDATION_FAILED;
+      errorMessage = "Validation failed";
+      if (showDetailedErrors) {
+        details = { error };
+      }
+    } else if (elyCode === "NOT_FOUND") {
+      statusCode = 404;
+      errorCode = ErrorCode.NOT_FOUND;
+      errorMessage = "Endpoint not found";
+    }
+
+    const logContext: ErrorLogContext = {
+      statusCode,
+      code: errorCode,
+      message: errorMessage,
+      path,
+      method,
+      requestId,
+      timestamp,
+      isDevelopment: showDetailedErrors,
+      stack: error instanceof Error ? error.stack : undefined,
+      originalError: error instanceof Error ? error : undefined,
+    };
+
+    logger.logError(logContext);
+
+    const errorResponse: ApiErrorData = {
+      code: errorCode,
+      message: errorMessage,
+      statusCode,
+      timestamp,
+      path,
+      requestId,
+      details,
+    };
+
+    set.status = statusCode;
+    set.headers["content-type"] = "application/json";
+
+    if (errorCode === ErrorCode.RATE_LIMITED) {
+      const headerValue = retryAfter ?? (details?.retryAfter as number | undefined);
+      if (headerValue != null) {
+        set.headers["retry-after"] = String(headerValue);
+      }
+    }
+
+    return errorResponse;
+  });
 
   return app;
 }

@@ -7,21 +7,12 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "types": [
-      "bun-types"
-    ],
+    "types": ["bun-types"],
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "src/*"
-      ]
+      "@/*": ["src/*"]
     }
   },
-  "include": [
-    "src",
-    "tests"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["src", "tests"],
+  "exclude": ["node_modules"]
 }

@@ -1,8 +1,18 @@
 {
   "explorer.fileNesting.patterns": {
     "tsconfig.json": "tsconfig.*.json",
-    "package.json": "*lock.json, *.lock, *lock.yaml, *.lockb, *config.json, *config.ts, vitest.config.e2e.ts, .eslintrc.json, .gitignore, .discloudignore, biome.json, .nvmrc",
+    "package.json": "*lock.json, *.lock, *lock.yaml, *.lockb, *config.json, *config.ts, vitest.config.*.ts, .eslintrc.json, .gitignore, .discloudignore, biome.json, .nvmrc",
     ".env.local": ".env*",
     ".env": ".env*"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "editor.defaultFormatter": "biomejs.biome",
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "never"
   }
 }

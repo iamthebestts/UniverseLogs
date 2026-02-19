@@ -1,9 +1,9 @@
-import { createLog, getLogById } from "@/services/logs.service";
 import { t } from "elysia";
+import { createLog, getLogById } from "@/services/logs.service";
 import { NotFoundError } from "../errors";
+import { rateLimitHandler } from "../handlers/rate-limit";
 import type { RouteApp } from "../server";
 import { serialize } from "../utils/serialization";
-import { rateLimitHandler } from "../handlers/rate-limit";
 
 type LogBody = {
   level: "info" | "warn" | "error";
@@ -30,11 +30,7 @@ export default function registerLogsRoutes(app: RouteApp) {
     },
     {
       body: t.Object({
-        level: t.Union([
-          t.Literal("info"),
-          t.Literal("warn"),
-          t.Literal("error"),
-        ]),
+        level: t.Union([t.Literal("info"), t.Literal("warn"), t.Literal("error")]),
         message: t.String({ maxLength: 2048 }),
         metadata: t.Optional(t.Any()),
         topic: t.Optional(t.String({ maxLength: 100 })),
@@ -70,7 +66,7 @@ export default function registerLogsRoutes(app: RouteApp) {
           429: { description: "Rate limit excedido" },
         },
       },
-    }
+    },
   );
 
   app.get(
@@ -98,9 +94,8 @@ export default function registerLogsRoutes(app: RouteApp) {
           404: { description: "Log não encontrado ou não pertence ao universo" },
         },
       },
-    }
+    },
   );
 
   return "api";
 }
-

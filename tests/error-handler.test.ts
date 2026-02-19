@@ -1,20 +1,21 @@
 // @ts-nocheck
+
+import { describe, expect, it } from "vitest";
 import {
   ApiError,
+  type ApiErrorData,
   AuthError,
   AuthorizationError,
   ConflictError,
   DatabaseError,
   ErrorCode,
+  type ErrorLogContext,
+  isApiError,
   NotFoundError,
   RateLimitError,
   ServiceUnavailableError,
   ValidationError,
-  isApiError,
-  type ApiErrorData,
-  type ErrorLogContext,
 } from "@/server/errors/types";
-import { describe, expect, it } from "vitest";
 
 describe("Error Handler Types", () => {
   describe("ErrorCode Enum", () => {
@@ -54,12 +55,9 @@ describe("Error Handler Types", () => {
       const error = new ApiError(ErrorCode.VALIDATION_FAILED, "Test", 400);
       expect(error.requestId).toBeUndefined();
 
-      const error2 = new ApiError(
-        ErrorCode.VALIDATION_FAILED,
-        "Test",
-        400,
-        { requestId: "req-123" }
-      );
+      const error2 = new ApiError(ErrorCode.VALIDATION_FAILED, "Test", 400, {
+        requestId: "req-123",
+      });
       expect(error2.requestId).toBe("req-123");
     });
 
@@ -67,12 +65,10 @@ describe("Error Handler Types", () => {
       const error = new ApiError(ErrorCode.VALIDATION_FAILED, "Test", 400);
       expect(error.path).toBeUndefined();
 
-      const error2 = new ApiError(
-        ErrorCode.VALIDATION_FAILED,
-        "Test",
-        400,
-        { path: "/api/test", requestId: "req-123" }
-      );
+      const error2 = new ApiError(ErrorCode.VALIDATION_FAILED, "Test", 400, {
+        path: "/api/test",
+        requestId: "req-123",
+      });
       expect(error2.path).toBe("/api/test");
     });
 

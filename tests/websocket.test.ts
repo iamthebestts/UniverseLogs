@@ -1,4 +1,14 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Mock env first so @/core/logger and any env-dependent code get valid config
+vi.mock("@/env", () => ({
+  env: {
+    NODE_ENV: "test",
+    MASTER_KEY: "test-master-key",
+    DATABASE_URL: "postgres://mock",
+    PORT: 0,
+  },
+}));
 
 // Mock das dependências pesadas
 vi.mock("@/db/client", () => ({ db: {} }));
@@ -6,7 +16,7 @@ vi.mock("@/services/api-keys.service", () => ({ validateApiKey: vi.fn() }));
 vi.mock("@/services/logs.service", () => ({ createLog: vi.fn() }));
 vi.mock("@/services/universes.service", () => ({ listUniverseLogs: vi.fn() }));
 
-import { wsManager, type WSLike } from "@/server/websocket/manager";
+import { type WSLike, wsManager } from "@/server/websocket/manager";
 import { registerRealtime } from "@/server/websocket/realtime.ws";
 import { validateApiKey } from "@/services/api-keys.service";
 
@@ -18,7 +28,7 @@ describe("WebSocket System", () => {
     mockWS = {
       send: vi.fn(),
       close: vi.fn(),
-      data: { headers: {} }
+      data: { headers: {} },
     } as any;
   });
 
@@ -27,11 +37,11 @@ describe("WebSocket System", () => {
       const universeId = BigInt(123);
       wsManager.add(universeId, mockWS);
       expect(mockWS.data.universeId).toBe(universeId);
-      
+
       const payload = { hello: "world" };
       wsManager.broadcast(universeId, payload);
       expect(mockWS.send).toHaveBeenCalled();
-      
+
       wsManager.remove(mockWS);
     });
   });
@@ -40,10 +50,10 @@ describe("WebSocket System", () => {
     it("should reject connection without API key", async () => {
       const app = { ws: vi.fn() } as any;
       registerRealtime(app);
-      
+
       const wsOptions = app.ws.mock.calls[0][1];
       await wsOptions.open(mockWS);
-      
+
       expect(mockWS.close).toHaveBeenCalled();
       expect(mockWS.send).toHaveBeenCalledWith(expect.objectContaining({ type: "ERROR" }));
     });
@@ -52,14 +62,16 @@ describe("WebSocket System", () => {
       const universeId = BigInt(456);
       (validateApiKey as any).mockResolvedValue({ universeId });
       (mockWS.data as any).headers["x-api-key"] = "valid-key";
-      
+
       const app = { ws: vi.fn() } as any;
       registerRealtime(app);
       const wsOptions = app.ws.mock.calls[0][1];
-      
+
       await wsOptions.open(mockWS);
-      
-      expect(mockWS.send).toHaveBeenCalledWith(expect.objectContaining({ type: "CONNECTED", universeId: universeId.toString() }));
+
+      expect(mockWS.send).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "CONNECTED", universeId: universeId.toString() }),
+      );
     });
   });
 });

@@ -1,39 +1,31 @@
-import { createApiKey } from "@/services/api-keys.service";
-import { createUniverse, getUniverse, listUniverseLogs, revokeUniverse } from "@/services/universes.service";
 import { t } from "elysia";
-import type { RouteApp } from "../server";
+import { createApiKey } from "@/services/api-keys.service";
+import {
+  createUniverse,
+  getUniverse,
+  listUniverseLogs,
+  revokeUniverse,
+} from "@/services/universes.service";
 import { ValidationError } from "../errors";
-import { serialize } from "../utils/serialization";
 import { rateLimitHandler } from "../handlers/rate-limit";
-
-const parseUniverseId = (value: unknown): bigint | null => {
-  if (typeof value === "bigint") return value;
-  if (typeof value === "number") {
-    if (!Number.isFinite(value) || !Number.isInteger(value) || !Number.isSafeInteger(value))
-      return null;
-    return BigInt(value);
-  }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    try {
-      return BigInt(trimmed);
-    } catch {
-      return null;
-    }
-  }
-  return null;
-};
+import type { RouteApp } from "../server";
+import { serialize } from "../utils/serialization";
+import { parseUniverseId } from "../utils/parsing";
 
 export default function registerUniverseRoutes(app: RouteApp) {
-  app.post<{ universeId: number | string; name?: string; description?: string; createKey?: boolean }>(
+  app.post<{
+    universeId: number | string;
+    name?: string;
+    description?: string;
+    createKey?: boolean;
+  }>(
     "/universes",
     async (ctx) => {
       const { universeId, name, description, createKey } = ctx.body;
       const parsed = parseUniverseId(universeId);
       if (parsed === null) {
         throw new ValidationError(
-          "universeId é obrigatório e deve ser um inteiro ou string numérica"
+          "universeId é obrigatório e deve ser um inteiro ou string numérica",
         );
       }
 
@@ -63,7 +55,7 @@ export default function registerUniverseRoutes(app: RouteApp) {
         description: "Permite registrar um universo manualmente se a chave for válida.",
         security: [{ ApiKeyAuth: [] }], // Nota: esta rota usa auth, mas tipicamente criação pública poderia ser aberta ou restrita. Assumindo comportamento atual.
       },
-    }
+    },
   );
 
   app.post(
@@ -76,8 +68,8 @@ export default function registerUniverseRoutes(app: RouteApp) {
       await revokeUniverse(parsed);
       return { success: true };
     },
-    { 
-      authRequired: true, 
+    {
+      authRequired: true,
       beforeHandle: rateLimitHandler({ maxRequests: 10, windowMs: 60_000 }),
       detail: {
         tags: ["Universes"],
@@ -85,7 +77,7 @@ export default function registerUniverseRoutes(app: RouteApp) {
         description: "Desativa um universo e invalida suas chaves.",
         security: [{ ApiKeyAuth: [] }],
       },
-    }
+    },
   );
 
   app.get(
@@ -100,8 +92,8 @@ export default function registerUniverseRoutes(app: RouteApp) {
       const logs = await listUniverseLogs(parsed, 10);
       return serialize({ universe, logs });
     },
-    { 
-      authRequired: true, 
+    {
+      authRequired: true,
       beforeHandle: rateLimitHandler({ maxRequests: 60, windowMs: 60_000 }),
       detail: {
         tags: ["Universes"],
@@ -109,7 +101,7 @@ export default function registerUniverseRoutes(app: RouteApp) {
         description: "Retorna metadados do universo e os últimos 10 logs.",
         security: [{ ApiKeyAuth: [] }],
       },
-    }
+    },
   );
 
   return "api";

@@ -1,4 +1,14 @@
-import { bigint, boolean, index, jsonb, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  index,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 export const logLevel = pgEnum("log_level", ["info", "warn", "error"]);
 
@@ -16,7 +26,9 @@ export const api_keys = pgTable("api_keys", {
   id: uuid("id").defaultRandom().primaryKey(),
   key: text("key").notNull().unique(), // hashed key
   is_active: boolean("is_active").default(true).notNull(),
-  universe_id: bigint("universe_id", { mode: "bigint" }).references(() => games.universe_id).notNull(),
+  universe_id: bigint("universe_id", { mode: "bigint" })
+    .references(() => games.universe_id)
+    .notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
   revoked_at: timestamp("revoked_at", { withTimezone: true }),
   last_used_at: timestamp("last_used_at", { withTimezone: true }),
@@ -38,9 +50,6 @@ export const logs = pgTable(
   (table) => ({
     universeIdx: index("logs_universe_idx").on(table.universe_id),
     timeIdx: index("logs_time_idx").on(table.timestamp),
-    universeTimeIdx: index("logs_universe_time_idx").on(
-      table.universe_id,
-      table.timestamp
-    ),
-  })
+    universeTimeIdx: index("logs_universe_time_idx").on(table.universe_id, table.timestamp),
+  }),
 );

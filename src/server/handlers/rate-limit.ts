@@ -1,5 +1,5 @@
-import { MemoryCache } from "@/core/cache";
 import type { Handler } from "elysia";
+import { MemoryCache } from "@/core/cache";
 
 /**
  * Estatísticas de limite de taxa para monitoramento e depuração
@@ -75,12 +75,7 @@ const globalStats = {
  * ```
  */
 export function rateLimitHandler(options: RateLimitOptions): Handler {
-  const {
-    maxRequests,
-    windowMs,
-    trackStats = true,
-    keyExtractor,
-  } = options;
+  const { maxRequests, windowMs, trackStats = true, keyExtractor } = options;
 
   // Validate options
   if (maxRequests <= 0) {
@@ -261,8 +256,6 @@ export function clearRateLimitData(): void {
  * })
  * ```
  */
-export function createRateLimitHandler(
-  options: RateLimitOptions,
-): Handler {
+export function createRateLimitHandler(options: RateLimitOptions): Handler {
   return rateLimitHandler(options);
 }

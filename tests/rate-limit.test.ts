@@ -1,11 +1,12 @@
 // @ts-nocheck
+
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   clearRateLimitData,
   getRateLimitStats,
   rateLimitHandler,
-  resetAllRateLimits
+  resetAllRateLimits,
 } from "@/server/handlers/rate-limit";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("Rate Limit Handler", () => {
   beforeEach(() => {
@@ -221,7 +222,7 @@ describe("Rate Limit Handler", () => {
       expect(mockCtx.set.status).toBe(200);
 
       // Second request (blocked)
-      let result = await handler(mockCtx);
+      const result = await handler(mockCtx);
       expect(mockCtx.set.status).toBe(429);
     });
 
@@ -587,11 +588,11 @@ describe("Rate Limit Handler", () => {
       });
 
       // Simulate 5 concurrent requests
-      const contexts = Array(5).fill(null).map(() => createCtx());
+      const contexts = Array(5)
+        .fill(null)
+        .map(() => createCtx());
 
-      const results = await Promise.all(
-        contexts.map((ctx) => handler(ctx))
-      );
+      const results = await Promise.all(contexts.map((ctx) => handler(ctx)));
 
       // Count allowed and blocked
       const blocked = contexts.filter((ctx) => ctx.set.status === 429);

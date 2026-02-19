@@ -2,9 +2,9 @@
  * Authentication strategies: API Key and Master Key
  */
 
+import { timingSafeEqual } from "node:crypto";
 import { env } from "@/env";
 import { validateApiKey } from "@/services/api-keys.service";
-import { timingSafeEqual } from "node:crypto";
 import type { AuthContext, AuthResult, AuthStrategy } from "./types";
 
 class ApiKeyStrategy implements AuthStrategy {

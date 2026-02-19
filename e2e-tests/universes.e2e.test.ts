@@ -1,6 +1,6 @@
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { env } from "@/env";
 import { buildApp } from "@/server/server";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 describe("Universes Management E2E", () => {
   let app: any;
@@ -12,7 +12,7 @@ describe("Universes Management E2E", () => {
   });
 
   beforeEach(async () => {
-    // 1. Criar uma chave de API auxiliar para as rotas "api" dentro de CADA teste 
+    // 1. Criar uma chave de API auxiliar para as rotas "api" dentro de CADA teste
     const res = await app.handle(
       new Request("http://localhost/internal/keys/register", {
         method: "POST",
@@ -21,7 +21,7 @@ describe("Universes Management E2E", () => {
           "x-master-key": env.MASTER_KEY,
         },
         body: JSON.stringify({ universeId: testUniverseId }),
-      })
+      }),
     );
     expect(res.ok, `Setup failed to create master key: ${await res.clone().text()}`).toBe(true);
     const data = await res.json();
@@ -37,9 +37,12 @@ describe("Universes Management E2E", () => {
           "x-master-key": env.MASTER_KEY,
         },
         body: JSON.stringify({ universeId: testUniverseId }),
-      })
+      }),
     );
-    expect(setupUniRes.ok, `Setup failed to ensure universe exists: ${await setupUniRes.clone().text()}`).toBe(true);
+    expect(
+      setupUniRes.ok,
+      `Setup failed to ensure universe exists: ${await setupUniRes.clone().text()}`,
+    ).toBe(true);
   });
 
   describe("Internal Management", () => {
@@ -53,7 +56,7 @@ describe("Universes Management E2E", () => {
             "x-master-key": env.MASTER_KEY,
           },
           body: JSON.stringify({ universeId: internalId }),
-        })
+        }),
       );
 
       expect(res.status).toBe(200);
@@ -71,7 +74,7 @@ describe("Universes Management E2E", () => {
             "x-master-key": "wrong-key",
           },
           body: JSON.stringify({ universeId: "1" }),
-        })
+        }),
       );
 
       expect(res.status).toBe(401);
@@ -92,9 +95,9 @@ describe("Universes Management E2E", () => {
             universeId: newUniverseId,
             name: "Public Universe",
             description: "Registered via API",
-            createKey: true
+            createKey: true,
           }),
-        })
+        }),
       );
 
       expect(res.status).toBe(200);
@@ -114,11 +117,11 @@ describe("Universes Management E2E", () => {
             "x-api-key": masterApiKey,
           },
           body: JSON.stringify({ level: "info", message: "Log for details check" }),
-        })
+        }),
       );
 
       // 2. Aguardar o flush do buffer
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 200));
 
       // 3. Buscar detalhes
       const res = await app.handle(
@@ -127,7 +130,7 @@ describe("Universes Management E2E", () => {
           headers: {
             "x-api-key": masterApiKey,
           },
-        })
+        }),
       );
 
       expect(res.status).toBe(200);
@@ -146,12 +149,12 @@ describe("Universes Management E2E", () => {
         new Request("http://localhost/api/universes", {
           method: "POST",
           headers: { "x-api-key": masterApiKey, "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            universeId: targetId, 
+          body: JSON.stringify({
+            universeId: targetId,
             name: "To be revoked",
-            createKey: true 
+            createKey: true,
           }),
-        })
+        }),
       );
       const { key: targetKey } = await regRes.json();
 
@@ -161,7 +164,7 @@ describe("Universes Management E2E", () => {
           method: "POST",
           headers: { "x-api-key": targetKey, "Content-Type": "application/json" },
           body: JSON.stringify({ level: "info", message: "Pre-revoke" }),
-        })
+        }),
       );
       expect(testRes.status).toBe(200);
 
@@ -170,7 +173,7 @@ describe("Universes Management E2E", () => {
         new Request(`http://localhost/api/universes/${targetId}/revoke`, {
           method: "POST",
           headers: { "x-api-key": targetKey },
-        })
+        }),
       );
       expect(revokeRes.status).toBe(200);
 
@@ -180,7 +183,7 @@ describe("Universes Management E2E", () => {
           method: "POST",
           headers: { "x-api-key": targetKey, "Content-Type": "application/json" },
           body: JSON.stringify({ level: "info", message: "Post-revoke" }),
-        })
+        }),
       );
       expect(failRes.status).toBe(401);
 
@@ -189,7 +192,7 @@ describe("Universes Management E2E", () => {
         new Request(`http://localhost/api/universes/${targetId}`, {
           method: "GET",
           headers: { "x-api-key": masterApiKey }, // Usar chave mestra já que a chave alvo foi revogada
-        })
+        }),
       );
       const checkData = await checkRes.json();
       expect(checkData.universe.is_active).toBe(false);

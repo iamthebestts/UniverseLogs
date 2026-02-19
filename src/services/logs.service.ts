@@ -1,8 +1,8 @@
+import { and, eq } from "drizzle-orm";
 import { logBuffer } from "@/core/log-buffer";
 import { db } from "@/db/client";
 import { games, logs } from "@/db/schema";
 import { wsManager } from "@/server/websocket/manager";
-import { and, eq } from "drizzle-orm";
 
 export interface LogData {
   level: "info" | "warn" | "error";
@@ -25,7 +25,7 @@ async function ensureUniverseExists(universeId: bigint) {
     .insert(games)
     .values({ universe_id: universeId, name: "Auto-created universe" })
     .onConflictDoNothing();
-  
+
   knownUniverses.add(idStr);
 }
 

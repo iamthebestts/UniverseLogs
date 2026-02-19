@@ -56,6 +56,21 @@ Se várias réplicas sobem ao mesmo tempo, todas tentam rodar as migrações; o 
 
 ---
 
+## CI/CD (GitHub Actions)
+
+A pipeline automatizada (`.github/workflows/pipeline.yml`) gerencia o ciclo de vida:
+
+- **CI (Push em main/develop e PRs):**
+  - Lint e Formatação (**Biome**)
+  - Verificação de tipos (**TSC**)
+  - Testes Unitários e Cobertura (**Vitest**)
+  - Verificação de build **Docker**
+- **CD (Apenas push em main):**
+  - Deploy automático para a **Discloud** via `discloud/deploy-action`.
+  - **Requisito:** Configure o secret `DISCLOUD_TOKEN` nas configurações do GitHub.
+
+---
+
 ## Rodar migrações manualmente (CLI)
 
 Sempre que precisar aplicar migrações fora do start da API (por exemplo com `RUN_MIGRATE=false`):

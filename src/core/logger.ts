@@ -1,5 +1,5 @@
-import { env } from "@/env";
 import chalk from "chalk";
+import { env } from "@/env";
 
 type LogLevel = "info" | "warn" | "error" | "debug";
 
@@ -21,13 +21,13 @@ class Logger {
     const timestamp = new Date().toISOString();
 
     if (this.isDev) {
-      // Pretty print for development
       const color = this.getColor(level);
-      const metaStr = Object.keys(meta).length ? `\n${JSON.stringify(meta, this.bigintReplacer, 2)}` : "";
+      const metaStr = Object.keys(meta).length
+        ? `\n${JSON.stringify(meta, this.bigintReplacer, 2)}`
+        : "";
       return `${chalk.gray(timestamp)} ${color(`[${level.toUpperCase()}]`)} ${message}${chalk.gray(metaStr)}`;
     }
 
-    // JSON structure for production
     const entry: LogEntry = {
       level,
       timestamp,
@@ -40,11 +40,16 @@ class Logger {
 
   private getColor(level: LogLevel) {
     switch (level) {
-      case "info": return chalk.blue;
-      case "warn": return chalk.yellow;
-      case "error": return chalk.red;
-      case "debug": return chalk.magenta;
-      default: return chalk.white;
+      case "info":
+        return chalk.blue;
+      case "warn":
+        return chalk.yellow;
+      case "error":
+        return chalk.red;
+      case "debug":
+        return chalk.magenta;
+      default:
+        return chalk.white;
     }
   }
 

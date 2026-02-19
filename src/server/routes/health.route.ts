@@ -1,5 +1,5 @@
-import { db } from "@/db/client";
 import { sql } from "drizzle-orm";
+import { db } from "@/db/client";
 import { rateLimitHandler } from "../handlers";
 import type { RouteApp } from "../server";
 
@@ -58,22 +58,18 @@ export default function registerHealthRoutes(app: RouteApp) {
             503: { description: "Serviço indisponível (banco fora do ar)" },
           },
         },
-      }
+      },
     )
-    .get(
-      "/ping",
-      () => ({ pong: true, timestamp: new Date().toISOString() }),
-      {
-        beforeHandle: healthRateLimit,
-        authRequired: false,
-        detail: {
-          tags: ["System"],
-          summary: "Ping",
-          description: "Resposta rápida para load balancers.",
-          security: [],
-        },
-      }
-    );
+    .get("/ping", () => ({ pong: true, timestamp: new Date().toISOString() }), {
+      beforeHandle: healthRateLimit,
+      authRequired: false,
+      detail: {
+        tags: ["System"],
+        summary: "Ping",
+        description: "Resposta rápida para load balancers.",
+        security: [],
+      },
+    });
 
   return "api";
 }

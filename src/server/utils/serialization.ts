@@ -1,13 +1,13 @@
 /**
  * Serializa dados de entrada, convertendo tipos específicos para formatos serializáveis.
- * 
+ *
  * - Valores `null` ou `undefined` são retornados como estão.
  * - Valores `bigint` são convertidos para string.
  * - Instâncias de `Date` são convertidas para string ISO.
  * - Arrays são serializados recursivamente.
  * - Objetos são serializados recursivamente, preservando chaves e valores.
  * - Outros tipos primitivos são retornados sem modificação.
- * 
+ *
  * @template T - O tipo dos dados de entrada.
  * @param data - Os dados a serem serializados.
  * @returns Os dados serializados em um formato compatível com JSON ou similar.

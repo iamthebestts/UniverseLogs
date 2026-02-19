@@ -1,7 +1,7 @@
-import path from "path";
-import { fileURLToPath } from "url";
-import { defineConfig } from "vitest/config";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
+import { defineConfig } from "vitest/config";
 
 config({ path: ".env.test" });
 
@@ -11,11 +11,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["tests/e2e/**/*.test.ts"],
+    include: ["e2e-tests/**/*.test.ts"],
     exclude: ["node_modules", "dist"],
-    globalSetup: "./tests/e2e/global-setup.ts",
-    setupFiles: ["./tests/e2e/setup.ts"],
-    fileParallelism: false, // E2E tests often depend on shared resources like DB
+    globalSetup: "./e2e-tests/global-setup.ts",
+    setupFiles: ["./e2e-tests/setup.ts"],
+    fileParallelism: false,
     hookTimeout: 30000,
   },
   resolve: {

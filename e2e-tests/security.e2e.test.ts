@@ -1,6 +1,6 @@
+import { beforeAll, describe, expect, it } from "vitest";
 import { env } from "@/env";
 import { buildApp } from "@/server/server";
-import { beforeAll, describe, expect, it } from "vitest";
 
 describe("Security & Rate Limit E2E", () => {
   let app: any;
@@ -22,9 +22,12 @@ describe("Security & Rate Limit E2E", () => {
             "x-master-key": env.MASTER_KEY,
           },
           body: JSON.stringify({ universeId }),
-        })
+        }),
       );
-      expect(createKeyRes.status, `Failed to create API key: ${await createKeyRes.clone().text()}`).toBe(200);
+      expect(
+        createKeyRes.status,
+        `Failed to create API key: ${await createKeyRes.clone().text()}`,
+      ).toBe(200);
       const { key: apiKey } = await createKeyRes.json();
 
       // 2. Verificar se a chave funciona
@@ -36,7 +39,7 @@ describe("Security & Rate Limit E2E", () => {
             "x-api-key": apiKey,
           },
           body: JSON.stringify({ level: "info", message: "Key working" }),
-        })
+        }),
       );
       expect(workRes.status).toBe(200);
 
@@ -49,7 +52,7 @@ describe("Security & Rate Limit E2E", () => {
             "x-master-key": env.MASTER_KEY,
           },
           body: JSON.stringify({ key: apiKey }),
-        })
+        }),
       );
       expect(revokeRes.status).toBe(200);
 
@@ -62,7 +65,7 @@ describe("Security & Rate Limit E2E", () => {
             "x-api-key": apiKey,
           },
           body: JSON.stringify({ level: "info", message: "Should be blocked" }),
-        })
+        }),
       );
       expect(blockedRes.status).toBe(401);
     });
@@ -101,9 +104,11 @@ describe("Security & Rate Limit E2E", () => {
             "x-master-key": env.MASTER_KEY,
           },
           body: JSON.stringify({ universeId: "111" }),
-        })
+        }),
       );
-      expect(createKeyRes.ok, `Key registration failed with status ${createKeyRes.status}`).toBe(true);
+      expect(createKeyRes.ok, `Key registration failed with status ${createKeyRes.status}`).toBe(
+        true,
+      );
       const { key: apiKey } = await createKeyRes.json();
       expect(typeof apiKey, "apiKey must be a non-empty string").toBe("string");
       expect(apiKey.length).toBeGreaterThan(0);
@@ -121,7 +126,7 @@ describe("Security & Rate Limit E2E", () => {
               "x-api-key": apiKey,
             },
             body: JSON.stringify({ level: "info", message: `Log ${i}` }),
-          })
+          }),
         );
         expect(res.status).toBe(200);
       }
@@ -135,7 +140,7 @@ describe("Security & Rate Limit E2E", () => {
             "x-api-key": apiKey,
           },
           body: JSON.stringify({ level: "info", message: "Final log" }),
-        })
+        }),
       );
 
       expect(exhaustedRes.status).toBe(429);

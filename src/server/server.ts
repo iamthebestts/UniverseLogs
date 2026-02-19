@@ -1,14 +1,14 @@
-import { logBuffer } from "@/core/log-buffer";
-import { logger } from "@/core/logger";
-import { sql } from "@/db/client";
-import { env } from "@/env";
+import { readdir } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { cors } from "@elysiajs/cors";
 import { edenTreaty } from "@elysiajs/eden";
 import chalk from "chalk";
 import { Elysia } from "elysia";
-import { readdir } from "node:fs/promises";
-import { join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { logBuffer } from "@/core/log-buffer";
+import { logger } from "@/core/logger";
+import { sql } from "@/db/client";
+import { env } from "@/env";
 import { getAuthStrategy } from "./auth/strategies";
 import { setupErrorHandling } from "./handlers/error-handler";
 import { requestLogger } from "./plugins/logger";
@@ -18,16 +18,13 @@ import { registerRealtime } from "./websocket/realtime.ws";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const ROUTES_DIR = join(__dirname, "routes");
 
-const isRouteFile = (file: string) =>
-  file.endsWith(".route.ts") || file.endsWith(".route.js");
+const isRouteFile = (file: string) => file.endsWith(".route.ts") || file.endsWith(".route.js");
 
 const createApp = () => new Elysia();
 
 export type App = ReturnType<typeof createApp>;
 
 type RouteRegister = (app: App) => void | Elysia;
-
-
 
 type RouteOptionsWithAuth = {
   authRequired?: boolean;
@@ -43,7 +40,6 @@ type RecordedRoute = {
 
 /**
  * Tipo personalizado de manipulador de rota que suporta a opção authRequired e contexto universeId.
- * Este é o tipo utilizado pelo proxy de rotas, não pelo app Elysia real.
  */
 type RouteHandler<T = unknown> = (ctx: {
   body: T;
@@ -57,13 +53,9 @@ type RouteHandler<T = unknown> = (ctx: {
 type RouteMethod = <T = unknown>(
   path: string,
   handler: RouteHandler<T>,
-  options?: RouteOptionsWithAuth
+  options?: RouteOptionsWithAuth,
 ) => RouteApp;
 
-/**
- * Tipo que representa o proxy de registro de rotas.
- * Arquivos de rota recebem esse proxy (não o app Elysia real) que suporta authRequired.
- */
 export type RouteApp = {
   get: RouteMethod;
   post: RouteMethod;
@@ -143,49 +135,36 @@ const loadRoutes = async (app: App) => {
       use: () => proxy,
     } as any;
 
-    const routeType = (await Promise.resolve(register(proxy))) as ("api" | "internal" | undefined);
-
+    const routeType = (await Promise.resolve(register(proxy))) as "api" | "internal" | undefined;
     const type = routeType === "internal" ? "internal" : "api";
-
     const prefix = type === "internal" ? "/internal" : "/api";
-
     const strategy = getAuthStrategy(type);
 
     const wrapWithAuth = (handler: any, authRequired = true) => {
-      if (!authRequired || !strategy) {
-        return handler;
-      }
-
+      if (!authRequired || !strategy) return handler;
       const headerName = strategy.keyHeaderName;
 
       return async (ctx: any) => {
-        const headerValue = normalizeHeaderValue(
-          ctx.request.headers.get(headerName)
-        );
-
+        const headerValue = normalizeHeaderValue(ctx.request.headers.get(headerName));
         const authHeaders: Record<string, string | string[] | undefined> = {};
         authHeaders[headerName] = headerValue;
 
         const result = await strategy.validate({ headers: authHeaders, type });
-
         if (!result.valid) {
           ctx.set.status = 401;
           return { error: result.error ?? "Unauthorized" };
         }
-
-        if (result.universeId) {
-          (ctx as any).universeId = result.universeId;
-        }
-
+        if (result.universeId !== undefined) (ctx as any).universeId = result.universeId;
         return handler(ctx);
       };
     };
 
-    const normalizeRoute = (
-      handlerOrOptions: unknown,
-      opts?: RouteOptionsWithAuth
-    ) => {
-      if (handlerOrOptions && typeof handlerOrOptions === "object" && "handler" in handlerOrOptions) {
+    const normalizeRoute = (handlerOrOptions: unknown, opts?: RouteOptionsWithAuth) => {
+      if (
+        handlerOrOptions &&
+        typeof handlerOrOptions === "object" &&
+        "handler" in handlerOrOptions
+      ) {
         const options = handlerOrOptions as RouteOptionsWithAuth & { handler?: unknown };
         return {
           isObjectStyle: true,
@@ -194,7 +173,6 @@ const loadRoutes = async (app: App) => {
           authRequired: options.authRequired,
         };
       }
-
       return {
         isObjectStyle: false,
         handler: handlerOrOptions,
@@ -206,34 +184,21 @@ const loadRoutes = async (app: App) => {
     for (const r of recorded) {
       const fullPath = r.path.startsWith(prefix) ? r.path : `${prefix}${r.path}`;
       const method = r.method.toLowerCase();
-
       const normalized = normalizeRoute(r.handlerOrOptions, r.opts);
-      if (typeof normalized.handler !== "function") {
-        console.log(
-          chalk.yellow(`[routes] aviso: handler inválido em ${fullPath} (${type})`)
-        );
-        continue;
-      }
+      if (typeof normalized.handler !== "function") continue;
 
       const authRequired = normalized.authRequired !== false;
       const wrappedHandler = wrapWithAuth(normalized.handler, authRequired);
 
-      if (normalized.isObjectStyle && normalized.options) {
-        const { authRequired: _authRequired, handler: _handler, ...options } = normalized.options as RouteOptionsWithAuth & { handler?: unknown };
-        (app as any)[method](fullPath, wrappedHandler, options);
-      } else {
-        const options = normalized.options && typeof normalized.options === "object"
+      const options =
+        normalized.isObjectStyle && normalized.options
           ? { ...normalized.options }
-          : normalized.options;
-        if (options && typeof options === "object" && "authRequired" in options) {
-          delete (options as RouteOptionsWithAuth).authRequired;
-        }
-        (app as any)[method](fullPath, wrappedHandler, options);
-      }
+          : { ...normalized.options };
+      if ("authRequired" in options) delete (options as any).authRequired;
+      if ("handler" in options) delete (options as any).handler;
 
-      logger.info(
-        `[route] ${r.method} ${fullPath} (${type}) auth:${authRequired ? "on" : "off"}`
-      );
+      (app as any)[method](fullPath, wrappedHandler, options);
+      logger.info(`[route] ${r.method} ${fullPath} (${type}) auth:${authRequired ? "on" : "off"}`);
     }
   }
 };
@@ -246,7 +211,6 @@ const serviceMetaPlugin = (app: App) =>
 
 export const buildApp = async () => {
   const app = createApp();
-
   app.use(requestLogger);
   app.use(cors());
   app.use(securityHeaders);
@@ -254,9 +218,7 @@ export const buildApp = async () => {
   if (env.NODE_ENV !== "test") {
     const { websocket } = await import("@elysiajs/websocket");
     const { swagger } = await import("@elysiajs/swagger");
-
     app.use(websocket());
-
     app.use(
       swagger({
         path: "/docs",
@@ -264,65 +226,33 @@ export const buildApp = async () => {
           info: {
             title: "Logs API",
             version: process.env.npm_package_version ?? "dev",
-            description: "API de ingestão e consulta de logs multi-tenant com isolamento por UniverseId.",
+            description: "API multi-tenant.",
           },
-          tags: [
-            { name: "Logs", description: "Ingestão e recuperação de logs" },
-            { name: "Universes", description: "Gestão de Universos (Tenants)" },
-            { name: "API Keys", description: "Gestão de chaves de acesso" },
-            { name: "System", description: "Monitoramento e status" },
-            { name: "Internal", description: "Rotas administrativas internas (Master Key)" },
-          ],
           components: {
             securitySchemes: {
-              ApiKeyAuth: {
-                type: "apiKey",
-                name: "x-api-key",
-                in: "header",
-                description: "Chave de acesso padrão para clientes (jogos/apps)",
-              },
-              MasterKeyAuth: {
-                type: "apiKey",
-                name: "x-master-key",
-                in: "header",
-                description: "Chave mestra para operações administrativas internas",
-              },
+              ApiKeyAuth: { type: "apiKey", name: "x-api-key", in: "header" },
+              MasterKeyAuth: { type: "apiKey", name: "x-master-key", in: "header" },
             },
           },
-          security: [{ ApiKeyAuth: [] }],
         },
-        swaggerOptions: {
-          persistAuthorization: true,
-          displayRequestDuration: true,
-          docExpansion: "list",
-        },
-      })
+      }),
     );
   }
+
   app.use(serviceMetaPlugin);
   setupErrorHandling(app);
-
   await loadRoutes(app);
 
-  if (env.NODE_ENV !== "test") {
-    registerRealtime(app);
-  }
-
-  if (((app as any).routes ?? []).length === 0) {
-    logger.warn("[routes] Nenhuma rota registrada — endpoints retornarão 404");
-  }
-
+  if (env.NODE_ENV !== "test") registerRealtime(app);
   return app;
 };
 
 export const startServer = async () => {
   const app = await buildApp();
-
   const { PORT: port, HOST: hostname } = env;
   const server = app.listen({ port, hostname }, () => {
     logger.info(`[server] HTTP server listening on ${hostname}:${port}`);
   });
-
   const shutdown = async () => {
     logger.warn("[server] Shutting down...");
     await logBuffer.stop();
@@ -330,12 +260,9 @@ export const startServer = async () => {
     await server.stop();
     process.exit(0);
   };
-
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
-
   return app;
 };
 
-export const createEdenClient = (baseUrl: string) =>
-  edenTreaty<App>(baseUrl);
+export const createEdenClient = (baseUrl: string) => edenTreaty<App>(baseUrl);

@@ -1,9 +1,9 @@
+import { createHash, randomBytes } from "node:crypto";
+import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { api_keys as apiKeys, games } from "@/db/schema";
 import { env } from "@/env";
 import { ensureUniverseExists } from "./universes.service";
-import { and, count, eq } from "drizzle-orm";
-import { createHash, randomBytes } from "node:crypto";
 
 function generateKey(): string {
   return randomBytes(32).toString("hex");
@@ -15,7 +15,6 @@ function hashKey(key: string): string {
 
 // API Publica do Serviço
 
-
 /**
  * Cria uma chave de API para o ID do universo fornecido.
  * Gera uma chave, calcula seu hash e a insere no banco de dados.
@@ -26,18 +25,14 @@ export async function createApiKey(universeId: bigint): Promise<{ key: string }>
   const key = generateKey();
   const hash = hashKey(key);
   // Ensure universe exists or handle according to env flags
-  const [game] = await db
-    .select()
-    .from(games)
-    .where(eq(games.universe_id, universeId))
-    .limit(1);
+  const [game] = await db.select().from(games).where(eq(games.universe_id, universeId)).limit(1);
 
   if (!game) {
     if (env.AUTO_CREATE_UNIVERSE) {
       await ensureUniverseExists(universeId);
     } else {
       throw new Error(
-        "Universe não existe e AUTO_CREATE_UNIVERSE está desabilitado; use a rota interna de criação."
+        "Universe não existe e AUTO_CREATE_UNIVERSE está desabilitado; use a rota interna de criação.",
       );
     }
   }
@@ -63,41 +58,31 @@ export async function createApiKey(universeId: bigint): Promise<{ key: string }>
  * @returns Um objeto contendo o `universeId` se a chave for válida.
  * @throws Error quando a chave de API é inválida ou revogada.
  */
-export async function validateApiKey(
-  key: string
-): Promise<{ universeId: bigint }> {
+export async function validateApiKey(key: string): Promise<{ universeId: bigint }> {
   const hash = hashKey(key);
 
   const [record] = await db
     .select()
     .from(apiKeys)
-    .where(
-      and(
-        eq(apiKeys.key, hash),
-        eq(apiKeys.is_active, true)
-      )
-    )
+    .where(and(eq(apiKeys.key, hash), eq(apiKeys.is_active, true)))
     .limit(1);
 
   if (!record) {
     throw new Error("API key inválida ou revogada");
   }
 
-  await db
-    .update(apiKeys)
-    .set({ last_used_at: new Date() })
-    .where(eq(apiKeys.id, record.id));
+  await db.update(apiKeys).set({ last_used_at: new Date() }).where(eq(apiKeys.id, record.id));
 
   return { universeId: record.universe_id };
 }
 
 /**
  * Obtém o ID de uma chave de API com base na chave fornecida, se estiver ativa.
- * 
+ *
  * Esta função calcula o hash da chave fornecida e consulta o banco de dados
  * para encontrar uma chave de API ativa correspondente. Se encontrada, retorna
  * o ID da chave; caso contrário, retorna null.
- * 
+ *
  * @param key - A chave de API em formato de string.
  * @returns Uma Promise que resolve para o ID da chave de API como string, ou null se não encontrada.
  */
@@ -107,12 +92,7 @@ export async function getIdByKey(key: string): Promise<string | null> {
   const [record] = await db
     .select()
     .from(apiKeys)
-    .where(
-      and(
-        eq(apiKeys.key, hash),
-        eq(apiKeys.is_active, true)
-      )
-    )
+    .where(and(eq(apiKeys.key, hash), eq(apiKeys.is_active, true)))
     .limit(1);
 
   if (!record) {
@@ -129,7 +109,10 @@ export async function getIdByKey(key: string): Promise<string | null> {
  */
 export async function revokeKey(id: string): Promise<void> {
   try {
-    await db.update(apiKeys).set({ is_active: false, revoked_at: new Date() }).where(eq(apiKeys.id, id));
+    await db
+      .update(apiKeys)
+      .set({ is_active: false, revoked_at: new Date() })
+      .where(eq(apiKeys.id, id));
   } catch (error) {
     throw new Error("Erro ao revogar a chave de API");
   }
@@ -150,13 +133,14 @@ export type ApiKeyMeta = {
  * @returns Uma promessa que resolve para uma lista de objetos com metadados das chaves.
  */
 export async function listApiKeys(universeId?: bigint): Promise<Array<ApiKeyMeta>> {
-  const query = universeId !== undefined
-    ? db.select().from(apiKeys).where(eq(apiKeys.universe_id, universeId))
-    : db.select().from(apiKeys);
+  const query =
+    universeId !== undefined
+      ? db.select().from(apiKeys).where(eq(apiKeys.universe_id, universeId))
+      : db.select().from(apiKeys);
 
   const records = await query;
 
-  return records.map(record => ({
+  return records.map((record) => ({
     id: record.id,
     is_active: record.is_active,
     created_at: record.created_at,

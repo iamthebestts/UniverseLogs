@@ -1,7 +1,7 @@
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { api_keys as apiKeys, games, logs } from "@/db/schema";
 import { env } from "@/env";
-import { and, desc, eq } from "drizzle-orm";
 
 export type UniverseMetadata = {
   name: string;
@@ -48,14 +48,15 @@ async function fetchRobloxUniverse(universeId: bigint): Promise<UniverseMetadata
 
 export async function createUniverse(
   universeId: bigint,
-  manual?: UniverseMetadata
+  manual?: UniverseMetadata,
 ): Promise<UniverseRecord> {
   const fetched = await fetchRobloxUniverse(universeId);
-  const meta: UniverseMetadata = manual ?? fetched ?? {
-    name: `Universe ${universeId}`,
-    description: "Criado automaticamente",
-    extra: { source: "auto_fallback" }
-  };
+  const meta: UniverseMetadata = manual ??
+    fetched ?? {
+      name: `Universe ${universeId}`,
+      description: "Criado automaticamente",
+      extra: { source: "auto_fallback" },
+    };
 
   const [record] = await db
     .insert(games)
@@ -80,27 +81,31 @@ export async function createUniverse(
       .from(games)
       .where(eq(games.universe_id, universeId))
       .limit(1);
-    if (existing) {
-      action = "update";
-      await db
-        .update(games)
-        .set({
-          name: meta.name,
-          description: meta.description,
-          metadata: meta.extra ?? {},
-          is_active: true,
-          updated_at: new Date(),
-        })
-        .where(eq(games.universe_id, universeId));
-      universe = {
-        ...existing,
+
+    if (!existing) {
+      throw new Error(`Falha ao recuperar ou criar o universo ${universeId}`);
+    }
+
+    action = "update";
+    await db
+      .update(games)
+      .set({
         name: meta.name,
         description: meta.description,
         metadata: meta.extra ?? {},
         is_active: true,
         updated_at: new Date(),
-      } as any;
-    }
+      })
+      .where(eq(games.universe_id, universeId));
+
+    universe = {
+      ...existing,
+      name: meta.name,
+      description: meta.description,
+      metadata: meta.extra ?? {},
+      is_active: true,
+      updated_at: new Date(),
+    } as any;
   }
 
   const message = action === "create" ? "Universe created" : "Universe updated";
@@ -138,20 +143,12 @@ export async function revokeUniverse(universeId: bigint): Promise<void> {
 }
 
 export async function getUniverse(universeId: bigint): Promise<UniverseRecord | null> {
-  const [record] = await db
-    .select()
-    .from(games)
-    .where(eq(games.universe_id, universeId))
-    .limit(1);
+  const [record] = await db.select().from(games).where(eq(games.universe_id, universeId)).limit(1);
   return record ?? null;
 }
 
 export async function ensureUniverseExists(universeId: bigint): Promise<void> {
-  const [record] = await db
-    .select()
-    .from(games)
-    .where(eq(games.universe_id, universeId))
-    .limit(1);
+  const [record] = await db.select().from(games).where(eq(games.universe_id, universeId)).limit(1);
 
   if (record) return;
 

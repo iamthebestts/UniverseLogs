@@ -1,7 +1,7 @@
-import { sql } from "@/db/client";
 import { afterAll, beforeEach } from "vitest";
-import { resetAllRateLimits } from "@/server/handlers/rate-limit";
 import { logBuffer } from "@/core/log-buffer";
+import { sql } from "@/db/client";
+import { resetAllRateLimits } from "@/server/handlers/rate-limit";
 
 /**
  * Limpa o banco de dados de teste antes de cada teste.
@@ -10,7 +10,7 @@ import { logBuffer } from "@/core/log-buffer";
 beforeEach(async () => {
   // Ensure all logs are flushed before truncation
   await logBuffer.flush();
-  
+
   resetAllRateLimits();
   const tables = await sql`
     SELECT tablename FROM pg_catalog.pg_tables 

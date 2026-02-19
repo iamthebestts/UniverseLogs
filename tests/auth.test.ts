@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // 1. Mock modules BEFORE importing anything else
 vi.mock("@/env", () => ({
   env: {
+    NODE_ENV: "test",
     MASTER_KEY: "test-master-key",
     PORT: 0,
     DATABASE_URL: "postgres://mock",
@@ -47,9 +48,11 @@ describe("Authentication System", () => {
 
     it("should return 401 for /internal routes with invalid x-master-key", async () => {
       const app = await buildApp();
-      const response = await app.handle(new Request("http://localhost/internal/keys/count", {
-        headers: { "x-master-key": "invalid-key" }
-      }));
+      const response = await app.handle(
+        new Request("http://localhost/internal/keys/count", {
+          headers: { "x-master-key": "invalid-key" },
+        }),
+      );
       expect(response.status).toBe(401);
       const body = await response.json();
       expect(body).toEqual({ error: "Invalid master key" });
@@ -60,9 +63,11 @@ describe("Authentication System", () => {
       (countActiveApiKeys as any).mockResolvedValue(5);
 
       const app = await buildApp();
-      const response = await app.handle(new Request("http://localhost/internal/keys/count", {
-        headers: { "x-master-key": "test-master-key" }
-      }));
+      const response = await app.handle(
+        new Request("http://localhost/internal/keys/count", {
+          headers: { "x-master-key": "test-master-key" },
+        }),
+      );
 
       expect(response.status).toBe(200);
       const body = await response.json();
@@ -74,12 +79,18 @@ describe("Authentication System", () => {
       const response = await app.handle(new Request("http://localhost/api/health"));
       expect(response.status).toBe(200);
       const body = await response.json();
-      expect(body).toMatchObject({ status: "ok", version: expect.any(String), checks: { database: "connected" } });
+      expect(body).toMatchObject({
+        status: "ok",
+        version: expect.any(String),
+        checks: { database: "connected" },
+      });
     });
 
     it("should return 401 for /api routes that require auth when without x-api-key", async () => {
       const app = await buildApp();
-      const response = await app.handle(new Request("http://localhost/api/logs/550e8400-e29b-41d4-a716-446655440000"));
+      const response = await app.handle(
+        new Request("http://localhost/api/logs/550e8400-e29b-41d4-a716-446655440000"),
+      );
       expect(response.status).toBe(401);
       const body = await response.json();
       expect(body).toEqual({ error: "Missing API key" });
@@ -89,9 +100,11 @@ describe("Authentication System", () => {
       (validateApiKey as any).mockRejectedValue(new Error("API key inválida ou revogada"));
 
       const app = await buildApp();
-      const response = await app.handle(new Request("http://localhost/api/logs/550e8400-e29b-41d4-a716-446655440000", {
-        headers: { "x-api-key": "invalid-key" }
-      }));
+      const response = await app.handle(
+        new Request("http://localhost/api/logs/550e8400-e29b-41d4-a716-446655440000", {
+          headers: { "x-api-key": "invalid-key" },
+        }),
+      );
 
       expect(response.status).toBe(401);
       const body = await response.json();
@@ -100,13 +113,19 @@ describe("Authentication System", () => {
 
     it("should return 200 for /api/health with VALID x-api-key", async () => {
       const app = await buildApp();
-      const response = await app.handle(new Request("http://localhost/api/health", {
-        headers: { "x-api-key": "valid-key" }
-      }));
+      const response = await app.handle(
+        new Request("http://localhost/api/health", {
+          headers: { "x-api-key": "valid-key" },
+        }),
+      );
 
       expect(response.status).toBe(200);
       const body = await response.json();
-      expect(body).toMatchObject({ status: "ok", version: expect.any(String), checks: { database: "connected" } });
+      expect(body).toMatchObject({
+        status: "ok",
+        version: expect.any(String),
+        checks: { database: "connected" },
+      });
     });
   });
 });

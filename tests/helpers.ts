@@ -29,7 +29,7 @@ export function createMockContext(overrides?: Partial<any>) {
  */
 export function createMockRequest(
   url: string = "http://localhost:3000/api/test",
-  headers?: Record<string, string>
+  headers?: Record<string, string>,
 ) {
   const headerMap = new Map(Object.entries(headers || {}));
   return {
@@ -174,9 +174,7 @@ export const perfUtils = {
   /**
    * Measure execution time of an async function
    */
-  async measureTime<T>(
-    fn: () => Promise<T>
-  ): Promise<{ result: T; duration: number }> {
+  async measureTime<T>(fn: () => Promise<T>): Promise<{ result: T; duration: number }> {
     const start = globalThis.performance.now();
     const result = await fn();
     const duration = globalThis.performance.now() - start;

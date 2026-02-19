@@ -74,7 +74,7 @@ export class ApiError extends Error {
       details?: Record<string, unknown>;
       path?: string;
       requestId?: string;
-    }
+    },
   ) {
     super(message);
     this.name = "ApiError";
@@ -113,14 +113,9 @@ export class ValidationError extends ApiError {
       details?: Record<string, unknown>;
       path?: string;
       requestId?: string;
-    }
+    },
   ) {
-    super(
-      ErrorCode.VALIDATION_FAILED,
-      message,
-      400,
-      options
-    );
+    super(ErrorCode.VALIDATION_FAILED, message, 400, options);
     this.name = "ValidationError";
     Object.setPrototypeOf(this, ValidationError.prototype);
   }
@@ -138,7 +133,7 @@ export class AuthError extends ApiError {
       details?: Record<string, unknown>;
       path?: string;
       requestId?: string;
-    }
+    },
   ) {
     const code = options?.code ?? ErrorCode.INVALID_API_KEY;
     super(code, message, 401, {
@@ -162,7 +157,7 @@ export class AuthorizationError extends ApiError {
       details?: Record<string, unknown>;
       path?: string;
       requestId?: string;
-    }
+    },
   ) {
     super(ErrorCode.FORBIDDEN, message, 403, options);
     this.name = "AuthorizationError";
@@ -184,7 +179,7 @@ export class RateLimitError extends ApiError {
       details?: Record<string, unknown>;
       path?: string;
       requestId?: string;
-    }
+    },
   ) {
     super(ErrorCode.RATE_LIMITED, message, 429, {
       details: {
@@ -210,7 +205,7 @@ export class NotFoundError extends ApiError {
       details?: Record<string, unknown>;
       path?: string;
       requestId?: string;
-    }
+    },
   ) {
     super(ErrorCode.NOT_FOUND, message, 404, options);
     this.name = "NotFoundError";
@@ -229,7 +224,7 @@ export class ConflictError extends ApiError {
       details?: Record<string, unknown>;
       path?: string;
       requestId?: string;
-    }
+    },
   ) {
     super(ErrorCode.CONFLICT, message, 409, options);
     this.name = "ConflictError";
@@ -251,7 +246,7 @@ export class DatabaseError extends ApiError {
       details?: Record<string, unknown>;
       path?: string;
       requestId?: string;
-    }
+    },
   ) {
     super(ErrorCode.DATABASE_ERROR, message, 500, options);
     this.name = "DatabaseError";
@@ -271,7 +266,7 @@ export class ServiceUnavailableError extends ApiError {
       details?: Record<string, unknown>;
       path?: string;
       requestId?: string;
-    }
+    },
   ) {
     super(ErrorCode.SERVICE_UNAVAILABLE, message, 503, options);
     this.name = "ServiceUnavailableError";

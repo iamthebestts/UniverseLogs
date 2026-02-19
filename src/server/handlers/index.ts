@@ -5,12 +5,12 @@
  */
 
 export {
-  rateLimitHandler,
-  createRateLimitHandler,
-  resetRateLimit,
-  resetAllRateLimits,
-  getRateLimitStats,
   clearRateLimitData,
+  createRateLimitHandler,
+  getRateLimitStats,
   type RateLimitOptions,
   type RateLimitStats,
+  rateLimitHandler,
+  resetAllRateLimits,
+  resetRateLimit,
 } from "./rate-limit";

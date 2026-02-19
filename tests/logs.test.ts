@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 // 1. Mock modules
 vi.mock("@/env", () => ({
   env: {
+    NODE_ENV: "test",
     MASTER_KEY: "test-master-key",
     PORT: 0,
     DATABASE_URL: "postgres://mock",
@@ -49,7 +50,7 @@ describe("Logs Routes", () => {
             level: "info",
             message: "Test log",
           }),
-        })
+        }),
       );
       expect(response.status).toBe(401);
     });
@@ -80,7 +81,7 @@ describe("Logs Routes", () => {
             message: "Test log",
             topic: "test-topic",
           }),
-        })
+        }),
       );
 
       expect(response.status).toBe(200);
@@ -96,9 +97,7 @@ describe("Logs Routes", () => {
   describe("GET /api/logs/:id", () => {
     it("should return 401 without API key", async () => {
       const app = await buildApp();
-      const response = await app.handle(
-        new Request("http://localhost/api/logs/123")
-      );
+      const response = await app.handle(new Request("http://localhost/api/logs/123"));
       expect(response.status).toBe(401);
     });
 
@@ -117,7 +116,7 @@ describe("Logs Routes", () => {
       const response = await app.handle(
         new Request(`http://localhost/api/logs/${logId}`, {
           headers: { "x-api-key": "valid-key" },
-        })
+        }),
       );
 
       expect(response.status).toBe(200);
@@ -133,7 +132,7 @@ describe("Logs Routes", () => {
       const response = await app.handle(
         new Request(`http://localhost/api/logs/not-found`, {
           headers: { "x-api-key": "valid-key" },
-        })
+        }),
       );
 
       expect(response.status).toBe(404);

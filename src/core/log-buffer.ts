@@ -1,6 +1,6 @@
 import { db } from "@/db/client";
-import { env } from "@/env";
 import { logs } from "@/db/schema";
+import { env } from "@/env";
 import { logger } from "./logger";
 
 type LogInsert = typeof logs.$inferInsert;
@@ -35,8 +35,6 @@ export class LogBuffer {
       logger.info(`[buffer] Flushed ${batch.length} logs to database.`);
     } catch (error) {
       logger.error("[buffer] Failed to flush logs to database", { error });
-      // Na prática real, poderíamos tentar reenfileirar ou salvar em arquivo de dead-letter
-      // Por enquanto, apenas logamos o erro para não travar a aplicação
     }
   }
 
@@ -56,5 +54,4 @@ export class LogBuffer {
   }
 }
 
-// Singleton instance
 export const logBuffer = new LogBuffer();

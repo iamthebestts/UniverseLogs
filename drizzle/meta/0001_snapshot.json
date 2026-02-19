@@ -60,12 +60,8 @@
           "name": "api_keys_universe_id_games_universe_id_fk",
           "tableFrom": "api_keys",
           "tableTo": "games",
-          "columnsFrom": [
-            "universe_id"
-          ],
-          "columnsTo": [
-            "universe_id"
-          ],
+          "columnsFrom": ["universe_id"],
+          "columnsTo": ["universe_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -75,9 +71,7 @@
         "api_keys_key_unique": {
           "name": "api_keys_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "key"
-          ]
+          "columns": ["key"]
         }
       },
       "policies": {},
@@ -225,12 +219,8 @@
           "name": "logs_universe_id_games_universe_id_fk",
           "tableFrom": "logs",
           "tableTo": "games",
-          "columnsFrom": [
-            "universe_id"
-          ],
-          "columnsTo": [
-            "universe_id"
-          ],
+          "columnsFrom": ["universe_id"],
+          "columnsTo": ["universe_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -246,11 +236,7 @@
     "public.log_level": {
       "name": "log_level",
       "schema": "public",
-      "values": [
-        "info",
-        "warn",
-        "error"
-      ]
+      "values": ["info", "warn", "error"]
     }
   },
   "schemas": {},

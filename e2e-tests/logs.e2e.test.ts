@@ -1,6 +1,6 @@
+import { beforeAll, describe, expect, it } from "vitest";
 import { env } from "@/env";
 import { buildApp } from "@/server/server";
-import { beforeAll, describe, expect, it } from "vitest";
 
 describe("Logs E2E", () => {
   let app: any;
@@ -27,7 +27,7 @@ describe("Logs E2E", () => {
         body: JSON.stringify({
           universeId: universeId,
         }),
-      })
+      }),
     );
 
     expect(createKeyResponse.status).toBe(200);
@@ -51,7 +51,7 @@ describe("Logs E2E", () => {
           "x-api-key": apiKey,
         },
         body: JSON.stringify(logPayload),
-      })
+      }),
     );
 
     expect(sendLogResponse.status).toBe(200);
@@ -67,7 +67,7 @@ describe("Logs E2E", () => {
         headers: {
           "x-api-key": apiKey,
         },
-      })
+      }),
     );
 
     expect(getLogResponse.status).toBe(200);
@@ -88,7 +88,7 @@ describe("Logs E2E", () => {
           level: "info",
           message: "Should fail",
         }),
-      })
+      }),
     );
 
     expect(response.status).toBe(401);
