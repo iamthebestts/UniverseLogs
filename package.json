@@ -18,7 +18,8 @@
     "type-check": "tsc --noEmit",
     "migrate": "bunx drizzle-kit migrate --config ./drizzle.config.ts",
     "dev": "bun run --watch --env-file .env.development src/index.ts",
-    "start": "bun run --env-file .env ."
+    "start": "bun run --env-file .env .",
+    "benchmark": "bun run scripts/benchmark.ts"
   },
   "dependencies": {
     "@elysiajs/bearer": "^1.4.3",

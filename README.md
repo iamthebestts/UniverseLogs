@@ -1,6 +1,6 @@
 # Logs API 🚀
 
-![Build Status](https://img.shields.io/badge/tests-passing-brightgreen)
+[![CI/CD Pipeline](https://github.com/iamthebestts/logs-api/actions/workflows/pipeline.yml/badge.svg)](https://github.com/iamthebestts/logs-api/actions/workflows/pipeline.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Tech Stack](https://img.shields.io/badge/stack-Bun_Elysia_Drizzle_Postgres-orange)
 
@@ -51,6 +51,12 @@ flowchart LR
 - **Segurança Pronta:** Rate limiting granular, security headers (OWASP) e Graceful Shutdown.
 - **Logger Estruturado:** Geração de logs JSON em produção para fácil integração com Datadog/ELK.
 
+### Métricas e Performance
+- **Escrita (POST /api/logs):** Latência alvo &lt; 10 ms (p95) em ambiente típico; inserções são bufferizadas e persistidas em batch a cada 5 s.
+- **Leitura (GET /api/logs/:id, consultas):** Índices em `universe_id` e `timestamp`; consultas sempre filtradas por tenant.
+- **WebSocket:** Baixa latência de broadcast; suporta PING/PONG e comandos (QUERY_LOGS, SEND_LOG) no mesmo canal.
+- **Benchmarks:** Execute `BENCHMARK_API_KEY=sua-chave bun run benchmark` (requer servidor rodando) para um teste de carga simples. Resultados de referência em [docs/operations.md](./docs/operations.md#métricas-e-benchmarks).
+
 ---
 
 ## ⚡ Início Rápido (Local)
@@ -96,6 +102,48 @@ Após subir a API, você precisa criar sua primeira chave de acesso:
 
 ---
 
+## 💻 Exemplo de Cliente (Node/Bun)
+
+Snippet mínimo para enviar logs e ler um log por ID usando a API:
+
+```typescript
+const API_BASE = "http://localhost:3000";
+const API_KEY = "sua-chave-aqui";
+
+// Enviar um log
+async function sendLog(level: string, message: string, metadata?: Record<string, unknown>) {
+  const res = await fetch(`${API_BASE}/api/logs`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY,
+    },
+    body: JSON.stringify({ level, message, ...(metadata && { metadata }) }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+// Buscar um log por ID
+async function getLog(id: string) {
+  const res = await fetch(`${API_BASE}/api/logs/${id}`, {
+    headers: { "x-api-key": API_KEY },
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+// Uso
+const log = await sendLog("info", "Evento do jogo", { place_id: "123", user_id: "456" });
+console.log("Log criado:", log.id);
+const same = await getLog(log.id);
+console.log("Log lido:", same);
+```
+
+Para **streaming em tempo real**, use o WebSocket documentado em [docs/websocket.md](./docs/websocket.md).
+
+---
+
 ## 🧪 Qualidade e Testes
 
 O projeto possui uma suíte de testes robusta que garante a integridade dos fluxos críticos.
@@ -111,12 +159,21 @@ bun run test:coverage # Relatório de cobertura
 
 ---
 
+## 📖 Documentação da API (Swagger)
+
+Com o servidor rodando, a documentação interativa está disponível em:
+
+- **Swagger UI:** [http://localhost:3000/docs](http://localhost:3000/docs) (ou `https://<seu-dominio>/docs` em produção)
+
+Lá você pode explorar todos os endpoints, autenticar com `X-API-Key` / `X-Master-Key` e testar as requisições diretamente no navegador.
+
+---
+
 ## 📚 Documentação Complementar
 
 - 🌐 **[Guia de Rotas REST](./docs/rotas.md)**
-- 🔌 **[WebSocket Realtime](./docs/websocket.md)**
+- 🔌 **[WebSocket Realtime](./docs/websocket.md)** — streaming de logs em tempo real
 - 🚀 **[Guia de Deployment](./docs/deploy.md)**
-- 📖 **Swagger UI**: Disponível em `/docs` com o servidor rodando.
 
 ---
 

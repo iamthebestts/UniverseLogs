@@ -16,6 +16,23 @@ Como o sistema ainda não integra Prometheus/OpenTelemetry nativamente, utilize 
 - **Errors:** Frequência de erros 5xx ou Timeouts de banco.
 - **Duration:** Latência média das rotas `/logs` e `/universes`.
 
+### Métricas e Benchmarks
+
+Para um teste de carga local (requer servidor rodando e uma API key válida):
+
+```bash
+bun run benchmark
+```
+
+O script envia requisições consecutivas para `POST /api/logs` e reporta latência (média, p95) e throughput. Valores de referência em ambiente típico (Bun, Postgres local):
+
+| Métrica | Alvo |
+|--------|------|
+| Latência p95 (POST /api/logs) | &lt; 10 ms |
+| Throughput (writes/s, single client) | &gt; 500/s (buffer reduz round-trips ao DB) |
+
+O WebSocket (`/realtime`) é otimizado para baixa latência de broadcast; para benchmarks de muitos clientes simultâneos, use ferramentas como `k6` ou `artillery` apontando para o endpoint HTTP e WS.
+
 ## 2. Gerenciamento de Banco de Dados (Postgres)
 
 O sistema usa **Drizzle ORM**.
