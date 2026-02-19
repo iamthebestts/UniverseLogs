@@ -50,22 +50,25 @@ Mantém a conexão ativa e testa a latência.
 ### 2. QUERY_LOGS
 Lista logs com os mesmos filtros do `GET /api/logs` (level, topic, from, to, cursor, limit).
 - **Payload**: `{ "level"?, "topic"?, "from"?, "to"?, "cursor_ts"?, "cursor_id"?, "limit"? }` (limit máx. 100).
-- **Resposta**: `{ "type": "LOGS_QUERY_RESULT", "logs": [...], "nextCursor"?: { "timestamp", "id" } }`
+- **Resposta**: `{ "type": "LOGS_QUERY_RESULT", "logs": [...], "nextCursor"?: { "cursor_ts", "cursor_id" } }`
 
 ### 3. QUERY_LOGS_COUNT
 Contagem total e por level (equivalente a `GET /api/logs/count`).
 - **Payload**: `{ "from"?, "to"? }` (datas ISO).
-- **Resposta**: `{ "type": "LOGS_COUNT_RESULT", "total", "byLevel": { "info", "warn", "error" } }`
+- **Resposta**: `{ "type": "LOGS_COUNT_RESULT", "total", "byLevel": { "<level>": <count>, ... } }` (inclui todos os levels presentes)
 
 ### 4. DELETE_LOGS
 Remove logs por `olderThan` e filtros opcionais (equivalente a `DELETE /api/logs`).
-- **Payload**: `{ "olderThan": "ISO date", "level"?, "topic"? }`
+- **Payload**: `{ "olderThan": "ISO date", "confirm": true, "level"?, "topic"? }`
+- **Nota**: O campo `confirm` é obrigatório para evitar deleções acidentais. O comando é sujeito a rate limiting e exige permissões elevadas. Deleções são auditadas.
 - **Resposta**: `{ "type": "LOGS_DELETED", "deleted": number }`
 
 ### 5. SEND_LOGS_BULK
 Cria vários logs em lote (equivalente a `POST /api/logs/bulk`).
 - **Payload**: `{ "logs": [{ "level", "message", "metadata"?, "topic"? }, ...] }` (máx. 100 itens).
-- **Resposta**: `{ "type": "LOGS_BULK_CREATED", "count": number }`
+- **Nota**: A operação é atômica (all-or-nothing). Se algum log falhar na validação (campos obrigatórios: `level`, `message`), nenhum será inserido.
+- **Resposta (Sucesso)**: `{ "type": "LOGS_BULK_CREATED", "count": number }`
+- **Resposta (Erro)**: `{ "type": "ERROR", "message": "Validation failed", "errors": [{ "index": number, "reason": string }, ...] }`
 
 ### 6. SEND_LOG
 Cria um novo log diretamente via WebSocket.

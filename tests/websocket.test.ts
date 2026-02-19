@@ -126,18 +126,19 @@ describe("WebSocket System", () => {
   });
 
   describe("Realtime Route — commands", () => {
-    const getMessageHandler = () => {
-      const app: MockApp = { ws: vi.fn() };
+    let app: MockApp;
+    let wsOptions: any;
+
+    beforeEach(() => {
+      app = { ws: vi.fn() };
       registerRealtime(app as any);
-      return app.ws.mock.calls[0][1].message;
-    };
+      wsOptions = app.ws.mock.calls[0][1];
+    });
 
     const openWithValidKey = async (universeId: bigint) => {
       vi.spyOn(apiKeysService, "validateApiKey").mockResolvedValue({ universeId });
       mockWS.data.headers = { "x-api-key": "valid-key" };
-      const app: MockApp = { ws: vi.fn() };
-      registerRealtime(app as any);
-      await app.ws.mock.calls[0][1].open(mockWS);
+      await wsOptions.open(mockWS);
       mockWS.data.universeId = universeId;
     };
 
@@ -155,8 +156,7 @@ describe("WebSocket System", () => {
         } as any,
       ]);
 
-      const message = getMessageHandler();
-      await message(
+      await wsOptions.message(
         mockWS,
         JSON.stringify({
           type: "QUERY_LOGS",
@@ -183,8 +183,7 @@ describe("WebSocket System", () => {
         byLevel: { info: 6, warn: 2, error: 2 },
       });
 
-      const message = getMessageHandler();
-      await message(
+      await wsOptions.message(
         mockWS,
         JSON.stringify({
           type: "QUERY_LOGS_COUNT",
@@ -212,12 +211,11 @@ describe("WebSocket System", () => {
       await openWithValidKey(BigInt(1));
       vi.spyOn(logsService, "deleteLogs").mockResolvedValue(3);
 
-      const message = getMessageHandler();
-      await message(
+      await wsOptions.message(
         mockWS,
         JSON.stringify({
           type: "DELETE_LOGS",
-          payload: { olderThan: "2025-01-01T00:00:00.000Z" },
+          payload: { olderThan: "2025-01-01T00:00:00.000Z", confirm: true },
         }),
       );
 
@@ -244,8 +242,7 @@ describe("WebSocket System", () => {
         } as any,
       ]);
 
-      const message = getMessageHandler();
-      await message(
+      await wsOptions.message(
         mockWS,
         JSON.stringify({
           type: "SEND_LOGS_BULK",
@@ -269,8 +266,7 @@ describe("WebSocket System", () => {
 
     it("invalid message returns ERROR", async () => {
       await openWithValidKey(BigInt(1));
-      const message = getMessageHandler();
-      await message(mockWS, "not json");
+      await wsOptions.message(mockWS, "not json");
       expect(mockWS.send).toHaveBeenCalledWith(
         expect.objectContaining({ type: "ERROR", message: "Invalid payload" }),
       );
@@ -278,8 +274,7 @@ describe("WebSocket System", () => {
 
     it("unknown command returns ERROR", async () => {
       await openWithValidKey(BigInt(1));
-      const message = getMessageHandler();
-      await message(mockWS, JSON.stringify({ type: "UNKNOWN_CMD" }));
+      await wsOptions.message(mockWS, JSON.stringify({ type: "UNKNOWN_CMD" }));
       expect(mockWS.send).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "ERROR",
@@ -290,8 +285,7 @@ describe("WebSocket System", () => {
 
     it("PING returns PONG", async () => {
       await openWithValidKey(BigInt(1));
-      const message = getMessageHandler();
-      await message(mockWS, JSON.stringify({ type: "PING" }));
+      await wsOptions.message(mockWS, JSON.stringify({ type: "PING" }));
       expect(mockWS.send).toHaveBeenCalledWith(
         expect.objectContaining({ type: "PONG", timestamp: expect.any(String) }),
       );
@@ -309,8 +303,7 @@ describe("WebSocket System", () => {
         timestamp: new Date(),
       } as any);
 
-      const message = getMessageHandler();
-      await message(
+      await wsOptions.message(
         mockWS,
         JSON.stringify({
           type: "SEND_LOG",

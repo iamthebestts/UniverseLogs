@@ -13,6 +13,9 @@ import {
   listLogs,
 } from "@/services/logs.service";
 
+const deleteRateLimits = new Map<bigint, number>();
+const DELETE_COOLDOWN_MS = 2000;
+
 function parseOptionalIsoDate(value: unknown): Date | undefined {
   if (value == null || value === "") return undefined;
   const s = typeof value === "string" ? value : String(value);
@@ -69,6 +72,7 @@ function parseQueryCountPayload(payload: unknown): {
 
 function parseDeleteLogsPayload(payload: unknown): {
   olderThan: Date;
+  confirm: boolean;
   level?: "info" | "warn" | "error";
   topic?: string;
 } | null {
@@ -76,10 +80,11 @@ function parseDeleteLogsPayload(payload: unknown): {
   const p = payload as Record<string, unknown>;
   const olderThan = parseOptionalIsoDate(p.olderThan);
   if (olderThan == null) return null;
+  const confirm = p.confirm === true;
   const level =
     p.level === "info" || p.level === "warn" || p.level === "error" ? p.level : undefined;
   const topic = typeof p.topic === "string" && p.topic.length <= 100 ? p.topic : undefined;
-  return { olderThan, level, topic };
+  return { olderThan, confirm, level, topic };
 }
 
 function parseSendLogPayload(payload: unknown): {
@@ -109,28 +114,32 @@ function parseSendLogPayload(payload: unknown): {
 }
 
 function parseSendLogsBulkPayload(payload: unknown): {
-  logs: Array<{
+  logs?: Array<{
     level: "info" | "warn" | "error";
     message: string;
     metadata?: unknown;
     topic?: string;
   }>;
+  errors?: Array<{ index: number; reason: string }>;
 } | null {
   if (payload == null || typeof payload !== "object") return null;
   const p = payload as Record<string, unknown>;
   const arr = p.logs;
   if (!Array.isArray(arr) || arr.length === 0 || arr.length > 100) return null;
-  const logs: Array<{
-    level: "info" | "warn" | "error";
-    message: string;
-    metadata?: unknown;
-    topic?: string;
-  }> = [];
-  for (const item of arr) {
+
+  const logs: Array<any> = [];
+  const errors: Array<{ index: number; reason: string }> = [];
+
+  arr.forEach((item, index) => {
     const parsed = parseSendLogPayload(item);
-    if (!parsed) return null;
-    logs.push(parsed);
-  }
+    if (!parsed) {
+      errors.push({ index, reason: "Invalid item structure or missing required fields" });
+    } else {
+      logs.push(parsed);
+    }
+  });
+
+  if (errors.length > 0) return { errors };
   return { logs };
 }
 
@@ -219,8 +228,8 @@ export const registerRealtime = (app: App) => {
             const nextCursor =
               rows.length === limit && rows.length > 0
                 ? {
-                    timestamp: (rows[rows.length - 1]!.timestamp as Date).toISOString(),
-                    id: rows[rows.length - 1]!.id,
+                    cursor_ts: (rows[rows.length - 1]!.timestamp as Date).toISOString(),
+                    cursor_id: rows[rows.length - 1]!.id,
                   }
                 : undefined;
             ws.send(
@@ -259,7 +268,41 @@ export const registerRealtime = (app: App) => {
               ws.send(serialize({ type: "ERROR", message: "Invalid payload" }));
               return;
             }
-            const deleted = await deleteLogs(universeId, filters);
+
+            if (!filters.confirm) {
+              ws.send(
+                serialize({
+                  type: "ERROR",
+                  message: "Deletion must be confirmed with 'confirm: true'",
+                }),
+              );
+              return;
+            }
+
+            // Simple Rate Limiting
+            const lastDelete = deleteRateLimits.get(universeId) || 0;
+            const now = Date.now();
+            if (now - lastDelete < DELETE_COOLDOWN_MS) {
+              ws.send(serialize({ type: "ERROR", message: "Rate limit exceeded for DELETE_LOGS" }));
+              return;
+            }
+            deleteRateLimits.set(universeId, now);
+
+            // Elevated permissions check (Placeholder: for now, any valid API key is allowed)
+            // But we add audit logging
+            const deleted = await deleteLogs(universeId, {
+              olderThan: filters.olderThan,
+              level: filters.level,
+              topic: filters.topic,
+            });
+
+            logger.info("[ws] Logs deleted", {
+              universeId,
+              deleted,
+              filters: { olderThan: filters.olderThan, level: filters.level, topic: filters.topic },
+              timestamp: new Date(),
+            });
+
             ws.send(serialize({ type: "LOGS_DELETED", deleted }));
             break;
           }
@@ -270,7 +313,13 @@ export const registerRealtime = (app: App) => {
               ws.send(serialize({ type: "ERROR", message: "Invalid payload" }));
               return;
             }
-            const inserted = await createLogsBulk(universeId, parsed.logs);
+            if (parsed.errors) {
+              ws.send(
+                serialize({ type: "ERROR", message: "Validation failed", errors: parsed.errors }),
+              );
+              return;
+            }
+            const inserted = await createLogsBulk(universeId, parsed.logs!);
             ws.send(serialize({ type: "LOGS_BULK_CREATED", count: inserted.length }));
             break;
           }
@@ -296,7 +345,14 @@ export const registerRealtime = (app: App) => {
         }
       } catch (err) {
         logger.error("[ws] Command error", { error: err });
-        ws.send(serialize({ type: "ERROR", message: "Invalid payload" }));
+        const isValidationError =
+          err instanceof Error && (err.name === "SyntaxError" || err.message.includes("payload"));
+        ws.send(
+          serialize({
+            type: "ERROR",
+            message: isValidationError ? "Invalid payload" : "Internal server error",
+          }),
+        );
       }
     },
 

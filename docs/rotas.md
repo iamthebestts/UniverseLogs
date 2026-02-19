@@ -50,10 +50,10 @@ Base: `/api`. Todas exigem `X-API-Key`; o `universe_id` é resolvido pela chave.
 
 **Query (opcional):**
 
-| Parâmetro | Tipo   | Descrição        |
-|-----------|--------|------------------|
-| from      | string | Data ISO início  |
-| to        | string | Data ISO fim     |
+| Parâmetro | Tipo   | Obrigatório | Descrição        |
+|-----------|--------|-------------|------------------|
+| from      | string | Não         | Data ISO início  |
+| to        | string | Não         | Data ISO fim     |
 
 **Resposta 200:** `{ total: number, byLevel: { info, warn, error } }`.
 
@@ -61,15 +61,15 @@ Base: `/api`. Todas exigem `X-API-Key`; o `universe_id` é resolvido pela chave.
 
 **Query:**
 
-| Parâmetro  | Tipo   | Descrição                          |
-|------------|--------|------------------------------------|
-| level      | string | `info` \| `warn` \| `error`       |
-| topic      | string | Filtro por topic                  |
-| from       | string | Data ISO início                    |
-| to         | string | Data ISO fim                       |
-| cursor_ts  | string | Cursor: timestamp do último item  |
-| cursor_id  | string | Cursor: id do último item         |
-| limit      | string | 1–100 (default 20)                |
+| Parâmetro  | Tipo   | Obrigatório | Descrição                          |
+|------------|--------|-------------|------------------------------------|
+| level      | string | Não         | `info` \| `warn` \| `error`       |
+| topic      | string | Não         | Filtro por topic                  |
+| from       | string | Não         | Data ISO início                    |
+| to         | string | Não         | Data ISO fim                       |
+| cursor_ts  | string | Não         | Cursor: timestamp do último item  |
+| cursor_id  | string | Não         | Cursor: id do último item         |
+| limit      | string | Não         | 1–100 (default 20)                |
 
 **Resposta 200:** `{ logs: LogResponse[], nextCursor?: { timestamp, id } }`. Ordenação: `timestamp DESC`, `id DESC`.
 

@@ -26,6 +26,10 @@ export class LogBuffer {
   }
 
   public setFlushInterval(ms: number) {
+    if (!Number.isFinite(ms) || ms <= 0) {
+      logger.warn(`[buffer] Invalid flush interval: ${ms}. Must be a positive finite number.`);
+      return;
+    }
     this.manualInterval = ms;
     this.startTimer();
     logger.info(`[buffer] Flush interval updated to ${ms}ms (isTest: ${this.isTest})`);

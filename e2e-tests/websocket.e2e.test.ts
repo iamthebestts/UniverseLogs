@@ -51,12 +51,19 @@ describe("WebSocket E2E", () => {
     await listenResult.stop();
   });
 
-  const sendWs = (msg: object): Promise<unknown> =>
+  const sendWs = (msg: object, timeoutMs = 5000): Promise<unknown> =>
     new Promise((resolve, reject) => {
       const ws = new WebSocket(wsUrl, {
         headers: { "x-api-key": apiKey },
       });
       const replies: unknown[] = [];
+      const timer = setTimeout(() => {
+        ws.terminate();
+        reject(new Error(`WebSocket command timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+
+      const clearTimer = () => clearTimeout(timer);
+
       ws.on("message", (data: Buffer | string) => {
         try {
           const parsed = JSON.parse(data.toString());
@@ -71,8 +78,12 @@ describe("WebSocket E2E", () => {
       ws.on("open", () => {
         ws.send(JSON.stringify(msg));
       });
-      ws.on("error", reject);
+      ws.on("error", (err) => {
+        clearTimer();
+        reject(err);
+      });
       ws.on("close", () => {
+        clearTimer();
         resolve(replies.length === 1 ? replies[0] : replies);
       });
     });
@@ -83,14 +94,24 @@ describe("WebSocket E2E", () => {
       const ws = new WebSocket(wsUrl, {
         headers: { "x-api-key": apiKey },
       });
+      const timer = setTimeout(() => {
+        ws.terminate();
+        reject(new Error("WebSocket connection timed out"));
+      }, 5000);
+
       ws.on("message", (data: Buffer | string) => {
         const parsed = JSON.parse(data.toString());
         if (parsed.type === "CONNECTED") {
+          clearTimeout(timer);
           ws.close();
           resolve(parsed);
         }
       });
-      ws.on("error", reject);
+      ws.on("error", (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+      ws.on("close", () => clearTimeout(timer));
     });
     expect(connected).toMatchObject({ type: "CONNECTED", universeId: "111222333" });
   });
@@ -158,7 +179,7 @@ describe("WebSocket E2E", () => {
     const oldDate = new Date(Date.now() - 3600 * 1000).toISOString();
     const res = await sendWs({
       type: "DELETE_LOGS",
-      payload: { olderThan: oldDate, topic: "ws-e2e" },
+      payload: { olderThan: oldDate, confirm: true, topic: "ws-e2e" },
     });
     const msg = Array.isArray(res) ? res.find((m: any) => m.type === "LOGS_DELETED") : res;
     expect(msg).toMatchObject({ type: "LOGS_DELETED", deleted: expect.any(Number) });

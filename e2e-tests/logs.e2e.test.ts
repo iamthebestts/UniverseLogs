@@ -117,7 +117,7 @@ describe("Logs E2E", () => {
       ...h,
     });
 
-    await app.handle(
+    const singleRes = await app.handle(
       new Request(`${base}/api/logs`, {
         method: "POST",
         headers: headers({}),
@@ -128,6 +128,7 @@ describe("Logs E2E", () => {
         }),
       }),
     );
+    expect(singleRes.status).toBe(200);
     await new Promise((r) => setTimeout(r, 500));
 
     const bulkRes = await app.handle(
@@ -176,9 +177,9 @@ describe("Logs E2E", () => {
       }),
     );
     expect(countRes.status).toBe(200);
-    const countData = await countRes.json();
-    expect(typeof countData.total).toBe("number");
-    expect(countData.byLevel).toBeDefined();
+    const countBefore = await countRes.json();
+    expect(typeof countBefore.total).toBe("number");
+    expect(countBefore.byLevel).toBeDefined();
 
     const oldDate = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const deleteRes = await app.handle(
@@ -197,5 +198,7 @@ describe("Logs E2E", () => {
       }),
     );
     expect(countAfterRes.status).toBe(200);
+    const countAfter = await countAfterRes.json();
+    expect(countAfter.total).toBe(countBefore.total - deleteData.deleted);
   });
 });
