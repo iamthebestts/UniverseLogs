@@ -12,6 +12,26 @@ type LogBody = {
   topic?: string;
 };
 
+const LogResponse = t.Object({
+  id: t.String(),
+  universe_id: t.String(),
+  level: t.Union([t.Literal("info"), t.Literal("warn"), t.Literal("error")]),
+  message: t.String(),
+  metadata: t.Any(),
+  topic: t.Nullable(t.String()),
+  timestamp: t.String(),
+});
+
+function normalizeLogResponse(log: Record<string, unknown>) {
+  return {
+    ...log,
+    topic: log.topic ?? null,
+    metadata: log.metadata ?? {},
+    timestamp:
+      log.timestamp != null ? log.timestamp : new Date().toISOString(),
+  };
+}
+
 export default function registerLogsRoutes(app: RouteApp) {
   app.post<LogBody>(
     "/logs",
@@ -26,7 +46,7 @@ export default function registerLogsRoutes(app: RouteApp) {
         topic,
       });
 
-      return serialize(log);
+      return normalizeLogResponse(serialize(log) as Record<string, unknown>);
     },
     {
       body: t.Object({
@@ -35,6 +55,7 @@ export default function registerLogsRoutes(app: RouteApp) {
         metadata: t.Optional(t.Any()),
         topic: t.Optional(t.String({ maxLength: 100 })),
       }),
+      response: LogResponse,
       authRequired: true,
       beforeHandle: rateLimitHandler({ maxRequests: 100, windowMs: 60_000 }),
       detail: {
@@ -42,24 +63,6 @@ export default function registerLogsRoutes(app: RouteApp) {
         summary: "Criar Log",
         description: "Registra um novo evento de log associado ao universo autenticado.",
         security: [{ ApiKeyAuth: [] }],
-        requestBody: {
-          description: "Dados do log",
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                properties: {
-                  level: { type: "string", enum: ["info", "warn", "error"], example: "info" },
-                  message: { type: "string", example: "Player joined match" },
-                  topic: { type: "string", example: "Matchmaking" },
-                  metadata: { type: "object", example: { matchId: 1234 } },
-                },
-                required: ["level", "message"],
-              },
-            },
-          },
-        },
         responses: {
           200: { description: "Log criado com sucesso" },
           401: { description: "API Key inválida ou ausente" },
@@ -80,9 +83,10 @@ export default function registerLogsRoutes(app: RouteApp) {
         throw new NotFoundError("Log não encontrado");
       }
 
-      return serialize(log);
+      return normalizeLogResponse(serialize(log) as Record<string, unknown>);
     },
     {
+      response: LogResponse,
       authRequired: true,
       beforeHandle: rateLimitHandler({ maxRequests: 60, windowMs: 60_000 }),
       detail: {

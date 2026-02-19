@@ -5,6 +5,16 @@ import type { RouteApp } from "../server";
 import { parseUniverseId } from "../utils/parsing";
 import { serialize } from "../utils/serialization";
 
+const UniverseResponse = t.Object({
+  universe_id: t.String(),
+  name: t.String(),
+  description: t.Nullable(t.String()),
+  metadata: t.Any(),
+  is_active: t.Boolean(),
+  created_at: t.String(),
+  updated_at: t.Nullable(t.String()),
+});
+
 export default function registerInternalUniverseRoutes(app: RouteApp) {
   app.post<{ universeId: number | string }>(
     "/universes/create",
@@ -24,6 +34,7 @@ export default function registerInternalUniverseRoutes(app: RouteApp) {
       body: t.Object({
         universeId: t.Union([t.Number(), t.String()]),
       }),
+      response: UniverseResponse,
       authRequired: true,
       detail: {
         tags: ["Internal", "Universes"],

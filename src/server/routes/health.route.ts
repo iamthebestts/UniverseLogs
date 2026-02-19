@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { t } from "elysia";
 import { db } from "@/db/client";
 import { rateLimitHandler } from "../handlers";
 import type { RouteApp } from "../server";
@@ -48,6 +49,15 @@ export default function registerHealthRoutes(app: RouteApp) {
       {
         beforeHandle: healthRateLimit,
         authRequired: false,
+        response: t.Object({
+          status: t.String(),
+          timestamp: t.String(),
+          version: t.String(),
+          checks: t.Object({
+            database: t.String(),
+            databaseLatencyMs: t.Optional(t.Number()),
+          }),
+        }),
         detail: {
           tags: ["System"],
           summary: "Health Check",
@@ -63,6 +73,10 @@ export default function registerHealthRoutes(app: RouteApp) {
     .get("/ping", () => ({ pong: true, timestamp: new Date().toISOString() }), {
       beforeHandle: healthRateLimit,
       authRequired: false,
+      response: t.Object({
+        pong: t.Boolean(),
+        timestamp: t.String(),
+      }),
       detail: {
         tags: ["System"],
         summary: "Ping",

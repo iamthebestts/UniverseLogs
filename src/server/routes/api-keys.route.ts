@@ -32,6 +32,9 @@ export default function registerApiKeyRoutes(app: RouteApp) {
       body: t.Object({
         universeId: t.Union([t.Number(), t.String()]),
       }),
+      response: t.Object({
+        key: t.String(),
+      }),
       detail: {
         tags: ["Internal", "API Keys"],
         summary: "Registrar Nova Key",
@@ -57,6 +60,9 @@ export default function registerApiKeyRoutes(app: RouteApp) {
       body: t.Object({
         key: t.String(),
       }),
+      response: t.Object({
+        success: t.Boolean(),
+      }),
       detail: {
         tags: ["Internal", "API Keys"],
         summary: "Revogar Key",
@@ -80,6 +86,10 @@ export default function registerApiKeyRoutes(app: RouteApp) {
     {
       query: t.Object({
         key: t.String(),
+      }),
+      response: t.Object({
+        valid: t.Boolean(),
+        universeId: t.String(),
       }),
       detail: {
         tags: ["Internal", "API Keys"],
@@ -106,6 +116,17 @@ export default function registerApiKeyRoutes(app: RouteApp) {
       query: t.Object({
         universeId: t.Optional(t.Union([t.Number(), t.String()])),
       }),
+      response: t.Array(
+        t.Object({
+          id: t.String(),
+          key: t.String(),
+          is_active: t.Boolean(),
+          universe_id: t.String(),
+          created_at: t.String(),
+          revoked_at: t.Nullable(t.String()),
+          last_used_at: t.Nullable(t.String()),
+        }),
+      ),
       detail: {
         tags: ["Internal", "API Keys"],
         summary: "Listar Keys",
@@ -121,6 +142,9 @@ export default function registerApiKeyRoutes(app: RouteApp) {
       return { count };
     },
     {
+      response: t.Object({
+        count: t.Number(),
+      }),
       detail: {
         tags: ["Internal", "API Keys"],
         summary: "Contar Keys Ativas",
