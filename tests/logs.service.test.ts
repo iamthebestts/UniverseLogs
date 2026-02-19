@@ -130,13 +130,13 @@ describe("logs.service", () => {
     });
 
     it("enforces limit cap at 100", async () => {
-      mockListResolve = mockLogRows(Array.from({ length: 200 }, () => ({})));
+      mockListResolve = mockLogRows(Array.from({ length: LOGS_LIST_MAX_LIMIT }, () => ({})));
       const chain = createChain();
       vi.spyOn(db, "select").mockReturnValue(chain);
 
       const rows = await listLogs(BigInt(1), { limit: 200 });
       expect(chain.limit).toHaveBeenCalledWith(LOGS_LIST_MAX_LIMIT);
-      expect(rows.length).toBe(200);
+      expect(rows.length).toBe(LOGS_LIST_MAX_LIMIT);
     });
 
     it("uses cursor when cursor_ts and cursor_id provided", async () => {

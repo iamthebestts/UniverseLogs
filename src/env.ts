@@ -25,7 +25,11 @@ const envBoolean = (defaultValue: boolean) =>
 
 const schema = z.object({
   // Database
-  DATABASE_URL: z.string({ message: "Database URL is required" }).min(1),
+  DATABASE_URL: z
+    .string({
+      error: "Database URL is required",
+    })
+    .min(1),
   RUN_MIGRATE: envBoolean(false),
   DB_MAX_CONNECTIONS: z.coerce.number().default(10),
   DB_IDLE_TIMEOUT: z.coerce.number().default(30),
@@ -39,7 +43,11 @@ const schema = z.object({
   FETCH_ROBLOX_API: envBoolean(true),
 
   // Keys
-  MASTER_KEY: z.string({ message: "Master key is required" }).min(1),
+  MASTER_KEY: z
+    .string({
+      error: "Master key is required",
+    })
+    .min(1),
 
   // OTHERS
   NODE_ENV: z.enum(["dev", "prod", "test"]).default("prod"),

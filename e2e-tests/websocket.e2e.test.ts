@@ -94,24 +94,36 @@ describe("WebSocket E2E", () => {
       const ws = new WebSocket(wsUrl, {
         headers: { "x-api-key": apiKey },
       });
+      let settled = false;
       const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
         ws.terminate();
         reject(new Error("WebSocket connection timed out"));
       }, 5000);
 
       ws.on("message", (data: Buffer | string) => {
+        if (settled) return;
         const parsed = JSON.parse(data.toString());
         if (parsed.type === "CONNECTED") {
+          settled = true;
           clearTimeout(timer);
           ws.close();
           resolve(parsed);
         }
       });
       ws.on("error", (err) => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
         reject(err);
       });
-      ws.on("close", () => clearTimeout(timer));
+      ws.on("close", () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(new Error("WebSocket closed before CONNECTED"));
+      });
     });
     expect(connected).toMatchObject({ type: "CONNECTED", universeId: "111222333" });
   });

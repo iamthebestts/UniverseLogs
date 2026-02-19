@@ -52,15 +52,40 @@ Lista logs com os mesmos filtros do `GET /api/logs` (level, topic, from, to, cur
 - **Payload**: `{ "level"?, "topic"?, "from"?, "to"?, "cursor_ts"?, "cursor_id"?, "limit"? }` (limit máx. 100).
 - **Resposta**: `{ "type": "LOGS_QUERY_RESULT", "logs": [...], "nextCursor"?: { "cursor_ts", "cursor_id" } }`
 
+> **Nota de Versão (v1.1.0)**: Os campos de cursor foram renomeados de `timestamp`/`id` para `cursor_ts`/`cursor_id` para maior clareza.
+> 
+> **Guia de Migração**:
+> - **Antigo**: `{ "timestamp": "...", "id": "..." }`
+> - **Novo**: `{ "cursor_ts": "...", "cursor_id": "..." }`
+> 
+> Para compatibilidade, o servidor aceita ambos os formatos no payload de requisição, mas retornará apenas o novo formato em `nextCursor`.
+
 ### 3. QUERY_LOGS_COUNT
 Contagem total e por level (equivalente a `GET /api/logs/count`).
 - **Payload**: `{ "from"?, "to"? }` (datas ISO).
-- **Resposta**: `{ "type": "LOGS_COUNT_RESULT", "total", "byLevel": { "<level>": <count>, ... } }` (inclui todos os levels presentes)
+- **Resposta**: `{ "type": "LOGS_COUNT_RESULT", "total": number, "byLevel": { "trace": number, "debug": number, "info": number, "warn": number, "error": number, "fatal": number } }`
+- **Nota**: O campo `byLevel` é um mapa de nomes de níveis de log para a contagem inteira. Todas as chaves para os níveis suportados (`trace`, `debug`, `info`, `warn`, `error`, `fatal`) estão sempre presentes, com valor 0 se não houver logs para aquele nível.
+
+**Exemplo de Resposta**:
+```json
+{
+  "type": "LOGS_COUNT_RESULT",
+  "total": 150,
+  "byLevel": {
+    "trace": 0,
+    "debug": 10,
+    "info": 100,
+    "warn": 30,
+    "error": 10,
+    "fatal": 0
+  }
+}
+```
 
 ### 4. DELETE_LOGS
 Remove logs por `olderThan` e filtros opcionais (equivalente a `DELETE /api/logs`).
 - **Payload**: `{ "olderThan": "ISO date", "confirm": true, "level"?, "topic"? }`
-- **Nota**: O campo `confirm` é obrigatório para evitar deleções acidentais. O comando é sujeito a rate limiting e exige permissões elevadas. Deleções são auditadas.
+- **Nota**: O campo `confirm` é obrigatório para evitar deleções acidentais. Se ausente ou `false`, o servidor retorna `{ "type": "ERROR", "message": "Campo 'confirm' obrigatório para confirmar deleção" }`. O comando é sujeito a rate limiting e exige permissões elevadas. Deleções são auditadas.
 - **Resposta**: `{ "type": "LOGS_DELETED", "deleted": number }`
 
 ### 5. SEND_LOGS_BULK

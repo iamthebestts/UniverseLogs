@@ -13,6 +13,13 @@ import {
   listLogs,
 } from "@/services/logs.service";
 
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}
+
 const deleteRateLimits = new Map<bigint, number>();
 const DELETE_COOLDOWN_MS = 2000;
 
@@ -39,9 +46,13 @@ function parseQueryLogsPayload(payload: unknown): {
   const topic = typeof p.topic === "string" && p.topic.length <= 100 ? p.topic : undefined;
   const from = parseOptionalIsoDate(p.from);
   const to = parseOptionalIsoDate(p.to);
-  const cursor_ts = parseOptionalIsoDate(p.cursor_ts);
+
+  const cursor_ts = parseOptionalIsoDate(p.cursor_ts ?? p.timestamp);
+  const rawCursorId = p.cursor_id ?? p.id;
+
   const cursor_id =
-    typeof p.cursor_id === "string" && p.cursor_id.length > 0 ? p.cursor_id : undefined;
+    typeof rawCursorId === "string" && rawCursorId.length > 0 ? rawCursorId : undefined;
+
   let limit: number | undefined;
   if (p.limit != null) {
     const n = Number(p.limit);
@@ -209,8 +220,7 @@ export const registerRealtime = (app: App) => {
           case "QUERY_LOGS": {
             const filters = parseQueryLogsPayload(data.payload);
             if (filters === null) {
-              ws.send(serialize({ type: "ERROR", message: "Invalid payload" }));
-              return;
+              throw new ValidationError("Invalid payload");
             }
             const limit = Math.min(Math.max(1, filters.limit ?? 20), LOGS_LIST_MAX_LIMIT);
             const rows = await listLogs(universeId, {
@@ -245,8 +255,7 @@ export const registerRealtime = (app: App) => {
           case "QUERY_LOGS_COUNT": {
             const filters = parseQueryCountPayload(data.payload);
             if (filters === null) {
-              ws.send(serialize({ type: "ERROR", message: "Invalid payload" }));
-              return;
+              throw new ValidationError("Invalid payload");
             }
             const result = await getLogsCount(universeId, {
               from: filters.from,
@@ -265,15 +274,14 @@ export const registerRealtime = (app: App) => {
           case "DELETE_LOGS": {
             const filters = parseDeleteLogsPayload(data.payload);
             if (filters === null) {
-              ws.send(serialize({ type: "ERROR", message: "Invalid payload" }));
-              return;
+              throw new ValidationError("Invalid payload");
             }
 
             if (!filters.confirm) {
               ws.send(
                 serialize({
                   type: "ERROR",
-                  message: "Deletion must be confirmed with 'confirm: true'",
+                  message: "Campo 'confirm' obrigatório para confirmar deleção",
                 }),
               );
               return;
@@ -287,6 +295,7 @@ export const registerRealtime = (app: App) => {
               return;
             }
             deleteRateLimits.set(universeId, now);
+            setTimeout(() => deleteRateLimits.delete(universeId), DELETE_COOLDOWN_MS);
 
             // Elevated permissions check (Placeholder: for now, any valid API key is allowed)
             // But we add audit logging
@@ -310,8 +319,7 @@ export const registerRealtime = (app: App) => {
           case "SEND_LOGS_BULK": {
             const parsed = parseSendLogsBulkPayload(data.payload);
             if (parsed === null) {
-              ws.send(serialize({ type: "ERROR", message: "Invalid payload" }));
-              return;
+              throw new ValidationError("Invalid payload");
             }
             if (parsed.errors) {
               ws.send(
@@ -327,8 +335,7 @@ export const registerRealtime = (app: App) => {
           case "SEND_LOG": {
             const payload = parseSendLogPayload(data.payload);
             if (payload === null) {
-              ws.send(serialize({ type: "ERROR", message: "Invalid payload" }));
-              return;
+              throw new ValidationError("Invalid payload");
             }
             const newLog = await createLog(universeId, payload);
             ws.send(
@@ -346,7 +353,7 @@ export const registerRealtime = (app: App) => {
       } catch (err) {
         logger.error("[ws] Command error", { error: err });
         const isValidationError =
-          err instanceof Error && (err.name === "SyntaxError" || err.message.includes("payload"));
+          err instanceof ValidationError || (err instanceof Error && err.name === "SyntaxError");
         ws.send(
           serialize({
             type: "ERROR",
