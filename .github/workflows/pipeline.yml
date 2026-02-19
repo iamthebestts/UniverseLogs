@@ -59,17 +59,3 @@ jobs:
       
       - name: Build Docker image
         run: docker build -t logs-api:check .
-
-  deploy:
-    name: Deploy to Discloud
-    needs: [lint-and-types, test, docker]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Discloud Deploy
-        uses: discloud/deploy-action@v1
-        with:
-          token: ${{ secrets.DISCLOUD_TOKEN }}
-          app_id: logs-api
