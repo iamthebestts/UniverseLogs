@@ -1,4 +1,4 @@
-import { afterAll, beforeEach } from "vitest";
+import { beforeEach } from "vitest";
 import { logBuffer } from "@/core/log-buffer";
 import { sql } from "@/db/client";
 import { resetAllRateLimits } from "@/server/handlers/rate-limit";

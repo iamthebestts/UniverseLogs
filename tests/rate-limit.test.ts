@@ -222,7 +222,7 @@ describe("Rate Limit Handler", () => {
       expect(mockCtx.set.status).toBe(200);
 
       // Second request (blocked)
-      const result = await handler(mockCtx);
+      await handler(mockCtx);
       expect(mockCtx.set.status).toBe(429);
     });
 
@@ -230,7 +230,7 @@ describe("Rate Limit Handler", () => {
       const handler = rateLimitHandler({
         maxRequests: 1,
         windowMs: 60000,
-        keyExtractor: (ctx) => null,
+        keyExtractor: () => null,
       });
 
       const mockCtx = {
@@ -319,17 +319,11 @@ describe("Rate Limit Handler", () => {
         set: { status: 200 },
       };
 
-      // Make requests without tracking
       for (let i = 0; i < 3; i++) {
         await handler(mockCtx);
       }
 
-      // Stats should not be updated
-      const initialStats = getRateLimitStats();
-      const statsHits = initialStats.hits;
-
-      // Both approaches should show same hits (none added)
-      // This test verifies trackStats: false prevents updates
+      getRateLimitStats();
     });
   });
 
@@ -353,7 +347,7 @@ describe("Rate Limit Handler", () => {
       await handler(mockCtx);
 
       // Second request (blocked)
-      let result = await handler(mockCtx);
+      await handler(mockCtx);
       expect(mockCtx.set.status).toBe(429);
 
       // Reset all rate limits (affects all keys and endpoints)
@@ -361,7 +355,7 @@ describe("Rate Limit Handler", () => {
 
       // Third request should be allowed after reset
       mockCtx.set.status = 200;
-      result = await handler(mockCtx);
+      await handler(mockCtx);
       expect(mockCtx.set.status).toBe(200);
     });
 
@@ -386,11 +380,11 @@ describe("Rate Limit Handler", () => {
 
       // Exhaust both keys
       await handler(ctx1);
-      let result1 = await handler(ctx1);
+      await handler(ctx1);
       expect(ctx1.set.status).toBe(429);
 
       await handler(ctx2);
-      let result2 = await handler(ctx2);
+      await handler(ctx2);
       expect(ctx2.set.status).toBe(429);
 
       // Reset all
@@ -400,10 +394,10 @@ describe("Rate Limit Handler", () => {
       ctx1.set.status = 200;
       ctx2.set.status = 200;
 
-      result1 = await handler(ctx1);
+      await handler(ctx1);
       expect(ctx1.set.status).toBe(200);
 
-      result2 = await handler(ctx2);
+      await handler(ctx2);
       expect(ctx2.set.status).toBe(200);
     });
 
@@ -541,7 +535,7 @@ describe("Rate Limit Handler", () => {
       expect(mockCtx.set.status).toBe(200);
 
       // Second request should be blocked (same limit)
-      const result = await handler(mockCtx);
+      await handler(mockCtx);
       expect(mockCtx.set.status).toBe(429);
     });
 
@@ -566,7 +560,7 @@ describe("Rate Limit Handler", () => {
       await handler(mockCtx);
 
       // Should be blocked with api-key limit
-      const result = await handler(mockCtx);
+      await handler(mockCtx);
       expect(mockCtx.set.status).toBe(429);
     });
   });
@@ -592,7 +586,7 @@ describe("Rate Limit Handler", () => {
         .fill(null)
         .map(() => createCtx());
 
-      const results = await Promise.all(contexts.map((ctx) => handler(ctx)));
+      await Promise.all(contexts.map((ctx) => handler(ctx)));
 
       // Count allowed and blocked
       const blocked = contexts.filter((ctx) => ctx.set.status === 429);

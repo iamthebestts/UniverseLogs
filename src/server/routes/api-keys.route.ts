@@ -9,8 +9,8 @@ import {
 } from "@/services/api-keys.service";
 import { AuthError, ValidationError } from "../errors";
 import type { RouteApp } from "../server";
-import { serialize } from "../utils/serialization";
 import { parseUniverseId } from "../utils/parsing";
+import { serialize } from "../utils/serialization";
 
 export default function registerApiKeyRoutes(app: RouteApp) {
   app.post<{ universeId: number | string }>(
@@ -116,7 +116,7 @@ export default function registerApiKeyRoutes(app: RouteApp) {
 
   app.get(
     "/keys/count",
-    async (ctx) => {
+    async () => {
       const count = await countActiveApiKeys();
       return { count };
     },

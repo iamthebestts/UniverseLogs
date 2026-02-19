@@ -113,7 +113,7 @@ export async function revokeKey(id: string): Promise<void> {
       .update(apiKeys)
       .set({ is_active: false, revoked_at: new Date() })
       .where(eq(apiKeys.id, id));
-  } catch (error) {
+  } catch {
     throw new Error("Erro ao revogar a chave de API");
   }
 }

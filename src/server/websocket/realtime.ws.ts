@@ -65,7 +65,7 @@ export const registerRealtime = (app: App) => {
           default:
             ws.send({ type: "ERROR", message: "Unknown command" });
         }
-      } catch (error) {
+      } catch {
         ws.send({ type: "ERROR", message: "Invalid payload" });
       }
     },

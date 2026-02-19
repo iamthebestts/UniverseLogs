@@ -24,7 +24,7 @@ const createApp = () => new Elysia();
 
 export type App = ReturnType<typeof createApp>;
 
-type RouteRegister = (app: App) => void | Elysia;
+type RouteRegister = (app: App) => undefined | Elysia;
 
 type RouteOptionsWithAuth = {
   authRequired?: boolean;
@@ -216,9 +216,7 @@ export const buildApp = async () => {
   app.use(securityHeaders);
 
   if (env.NODE_ENV !== "test") {
-    const { websocket } = await import("@elysiajs/websocket");
     const { swagger } = await import("@elysiajs/swagger");
-    app.use(websocket());
     app.use(
       swagger({
         path: "/docs",

@@ -9,8 +9,8 @@ import {
 import { ValidationError } from "../errors";
 import { rateLimitHandler } from "../handlers/rate-limit";
 import type { RouteApp } from "../server";
-import { serialize } from "../utils/serialization";
 import { parseUniverseId } from "../utils/parsing";
+import { serialize } from "../utils/serialization";
 
 export default function registerUniverseRoutes(app: RouteApp) {
   app.post<{

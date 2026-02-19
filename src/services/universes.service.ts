@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { api_keys as apiKeys, games, logs } from "@/db/schema";
 import { env } from "@/env";

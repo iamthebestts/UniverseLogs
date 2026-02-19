@@ -97,54 +97,54 @@ const logger = new ErrorLogger();
  * Builds a standardized error response
  * PROD: no details/stack. DEV/TEST: details and stack for debugging.
  */
-function buildErrorResponse(error: unknown, path?: string, requestId?: string): ApiErrorData {
-  const timestamp = new Date().toISOString();
+// function buildErrorResponse(error: unknown, path?: string, requestId?: string): ApiErrorData {
+//   const timestamp = new Date().toISOString();
 
-  if (isApiError(error)) {
-    return {
-      code: error.code,
-      message: error.message,
-      statusCode: error.statusCode,
-      timestamp,
-      path: path ?? error.path,
-      requestId: requestId ?? error.requestId,
-      details: showDetailedErrors ? error.details : undefined,
-    };
-  }
+//   if (isApiError(error)) {
+//     return {
+//       code: error.code,
+//       message: error.message,
+//       statusCode: error.statusCode,
+//       timestamp,
+//       path: path ?? error.path,
+//       requestId: requestId ?? error.requestId,
+//       details: showDetailedErrors ? error.details : undefined,
+//     };
+//   }
 
-  // Handle native Error objects
-  if (error instanceof Error) {
-    const statusCode = 500;
-    const code = ErrorCode.INTERNAL_ERROR;
-    const message = showDetailedErrors ? error.message : "Internal server error";
+//   Handle native Error objects
+//   if (error instanceof Error) {
+//     const statusCode = 500;
+//     const code = ErrorCode.INTERNAL_ERROR;
+//     const message = showDetailedErrors ? error.message : "Internal server error";
 
-    return {
-      code,
-      message,
-      statusCode,
-      timestamp,
-      path,
-      requestId,
-      details: showDetailedErrors
-        ? {
-            name: error.name,
-            stack: error.stack,
-          }
-        : undefined,
-    };
-  }
+//     return {
+//       code,
+//       message,
+//       statusCode,
+//       timestamp,
+//       path,
+//       requestId,
+//       details: showDetailedErrors
+//         ? {
+//             name: error.name,
+//             stack: error.stack,
+//           }
+//         : undefined,
+//     };
+//   }
 
-  // Handle unknown errors
-  return {
-    code: ErrorCode.UNKNOWN_ERROR,
-    message: "An unexpected error occurred",
-    statusCode: 500,
-    timestamp,
-    path,
-    requestId,
-    details: showDetailedErrors ? { error: String(error) } : undefined,
-  };
-}
+//   Handle unknown errors
+//   return {
+//     code: ErrorCode.UNKNOWN_ERROR,
+//     message: "An unexpected error occurred",
+//     statusCode: 500,
+//     timestamp,
+//     path,
+//     requestId,
+//     details: showDetailedErrors ? { error: String(error) } : undefined,
+//   };
+// }
 
 /**
  * Global error handler plugin for Elysia
@@ -171,7 +171,6 @@ export function setupErrorHandler(app: any) {
     let errorCode = ErrorCode.INTERNAL_ERROR;
     let errorMessage = "Internal server error";
     let details: Record<string, unknown> | undefined;
-    let originalError: Error | undefined;
     let retryAfter: number | undefined;
 
     if (isApiError(error as any)) {
@@ -192,7 +191,6 @@ export function setupErrorHandler(app: any) {
       statusCode = 500;
       errorCode = ErrorCode.INTERNAL_ERROR;
       errorMessage = showDetailedErrors ? error.message : "Internal server error";
-      originalError = error;
       if (showDetailedErrors) {
         details = {
           name: error.name,

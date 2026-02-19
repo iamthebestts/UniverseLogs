@@ -362,7 +362,7 @@ describe("Error Handler Types", () => {
       },
     ];
 
-    errorCodeTests.forEach(({ code, expectedStatus, expectedClass }) => {
+    errorCodeTests.forEach(({ code, expectedStatus }) => {
       it(`should map ${code} to ${expectedStatus}`, () => {
         expect(typeof code).toBe("string");
         expect(code.length).toBeGreaterThan(0);
