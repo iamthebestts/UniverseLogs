@@ -50,12 +50,12 @@ describe("Logs Routes", () => {
       const universeId = BigInt(123);
       vi.spyOn(apiKeysService, "validateApiKey").mockResolvedValue({ universeId });
       const createSpy = vi.spyOn(logsService, "createLog").mockResolvedValue({
-        id: "log-id",
+        id: "00000000-0000-0000-0000-000000000001",
         universe_id: universeId,
         level: "info",
         message: "Test log",
         metadata: {},
-        topic: null,
+        topic: undefined,
         timestamp: new Date(),
       });
 
@@ -94,7 +94,7 @@ describe("Logs Routes", () => {
 
     it("should return 200 and return log if found", async () => {
       const universeId = BigInt(123);
-      const logId = "log-123";
+      const logId = "00000000-0000-0000-0000-000000000002";
       vi.spyOn(apiKeysService, "validateApiKey").mockResolvedValue({ universeId });
       const getByIdSpy = vi.spyOn(logsService, "getLogById").mockResolvedValue({
         id: logId,
@@ -117,7 +117,9 @@ describe("Logs Routes", () => {
     it("should return 404 if log not found", async () => {
       const universeId = BigInt(123);
       vi.spyOn(apiKeysService, "validateApiKey").mockResolvedValue({ universeId });
-      vi.spyOn(logsService, "getLogById").mockResolvedValue(null);
+      vi.spyOn(logsService, "getLogById").mockResolvedValue(
+        null as unknown as Awaited<ReturnType<typeof logsService.getLogById>>,
+      );
 
       const app = await buildApp();
       const response = await app.handle(
@@ -142,7 +144,7 @@ describe("Logs Routes", () => {
       vi.spyOn(apiKeysService, "validateApiKey").mockResolvedValue({ universeId });
       const listSpy = vi.spyOn(logsService, "listLogs").mockResolvedValue([
         {
-          id: "log-1",
+          id: "00000000-0000-0000-0000-000000000003",
           universe_id: universeId,
           level: "info",
           message: "Test",
@@ -203,7 +205,7 @@ describe("Logs Routes", () => {
       vi.spyOn(apiKeysService, "validateApiKey").mockResolvedValue({ universeId });
       const bulkSpy = vi.spyOn(logsService, "createLogsBulk").mockResolvedValue([
         {
-          id: "bulk-1",
+          id: "00000000-0000-0000-0000-000000000004",
           universe_id: universeId,
           level: "info",
           message: "Bulk 1",
@@ -212,7 +214,7 @@ describe("Logs Routes", () => {
           timestamp: new Date(),
         } as any,
         {
-          id: "bulk-2",
+          id: "00000000-0000-0000-0000-000000000005",
           universe_id: universeId,
           level: "warn",
           message: "Bulk 2",

@@ -1,22 +1,32 @@
+# Dev & VCS
 .vscode/
+.serena/
 .git/
 .github/
-node_modules/
-coverage/
-*.lcov
-.env*
-!.env.example
-.idea/
-.cache/
-*.tsbuildinfo
-*.log
+
+# Tests
 tests/
+e2e-tests/
+
+# Docs & Assets desnecessários
 docs/
 images/
-.serena/
-e2e-tests/
 *.md
 !README.md
+
+# Config dev
 biome.json
-LICENSE
+*.tsbuildinfo
+.cache/
+.serena/
+
+# Logs
+*.log
+
+# Env
+.env*
+!.env.production
+!.env.example
+
+# Zip
 *.zip
