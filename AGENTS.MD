@@ -1,7 +1,7 @@
 # AGENTS.MD
 
 ## 1. Visão Geral do Projeto
-**Nome:** `logs-api`
+**Nome:** `UniverseLogs`
 **Descrição:** Serviço de ingestão e consulta de logs estruturados com isolamento multi-tenant. O sistema é focado em alta performance para atender jogos Roblox (identificados por UniverseId) e outras aplicações distribuídas.
 **Objetivo Principal:** Centralizar observabilidade garantindo segurança por isolamento (via API Keys) e flexibilidade de esquema (via JSONB).
 

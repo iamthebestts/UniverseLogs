@@ -70,14 +70,13 @@ describe("Universes Service & Routes", () => {
     vi.spyOn(db, "update").mockReturnValue(mockChain as any);
     vi.spyOn(db, "delete").mockReturnValue(mockChain as any);
 
-    vi.spyOn(db, "transaction").mockImplementation((cb: any) =>
+    vi.spyOn(db, "transaction").mockImplementation(((cb: any) =>
       cb({
         insert: vi.fn().mockReturnValue(mockChain),
         select: vi.fn().mockReturnValue(mockChain),
         update: vi.fn().mockReturnValue(mockChain),
         delete: vi.fn().mockReturnValue(mockChain),
-      } as any),
-    );
+      } as any)) as any);
   });
 
   afterEach(() => {

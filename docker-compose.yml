@@ -4,7 +4,7 @@ services:
   # Banco de Dados PostgreSQL
   postgres:
     image: postgres:16-alpine
-    container_name: logs-api-postgres
+    container_name: UniverseLogs-postgres
     environment:
       POSTGRES_USER: ${DB_USER:-logsuser}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-logspassword}
@@ -25,11 +25,11 @@ services:
     restart: unless-stopped
 
   # Aplicação Logs API
-  logs-api:
+  UniverseLogs:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: logs-api-app
+    container_name: UniverseLogs-app
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,9 +75,9 @@ services:
   # Opcional: pgAdmin para gerenciamento de banco de dados (Desenvolvimento)
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: logs-api-pgadmin
+    container_name: UniverseLogs-pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@logs-api.local}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@UniverseLogs.local}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
       PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:

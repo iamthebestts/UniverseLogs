@@ -1,4 +1,4 @@
-# Documentação — logs-api
+# Documentação — UniverseLogs
 
 | Documento | Conteúdo |
 |-----------|----------|

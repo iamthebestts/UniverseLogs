@@ -32,7 +32,7 @@ class Logger {
       level,
       timestamp,
       message,
-      service: "logs-api",
+      service: "UniverseLogs",
       ...meta,
     };
     return JSON.stringify(entry, this.bigintReplacer);

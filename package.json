@@ -1,5 +1,5 @@
 {
-  "name": "logs-api",
+  "name": "UniverseLogs",
   "description": "API de Ingestão e Consulta de Logs Estruturados de Alta Performance com isolamento multi-tenant nativo, otimizada para jogos distribuídos e microsserviços.",
   "version": "1.0.0",
   "license": "MIT",

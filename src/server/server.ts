@@ -217,7 +217,7 @@ const loadRoutes = async (app: App) => {
 
 const serviceMetaPlugin = (app: App) =>
   app.state("service", {
-    name: "logs-api",
+    name: "UniverseLogs",
     version: process.env.npm_package_version ?? "dev",
   });
 
