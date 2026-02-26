@@ -34,14 +34,14 @@ Se várias réplicas sobem ao mesmo tempo, todas tentam rodar as migrações; o 
 1. Build e run (a aplicação roda as migrações na subida, pois `RUN_MIGRATE` não é setado e vale `true`):
 
    ```bash
-   docker build -t UniverseLogs .
-   docker run -p 8080:8080 --env-file .env UniverseLogs
+   docker build -t universe-logs .
+   docker run -p 8080:8080 --env-file .env universe-logs
    ```
 
 2. Se quiser que **só o pipeline/operador** rode migrações, defina no env do container:
 
    ```bash
-   docker run -p 8080:8080 -e RUN_MIGRATE=false --env-file .env UniverseLogs
+   docker run -p 8080:8080 -e RUN_MIGRATE=false --env-file .env universe-logs
    ```
 
    e rode `bun run migrate` (ou um job que use a mesma imagem e `DATABASE_URL`) antes de subir os containers da API.

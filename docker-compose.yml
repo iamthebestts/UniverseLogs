@@ -25,7 +25,7 @@ services:
     restart: unless-stopped
 
   # Aplicação Logs API
-  UniverseLogs:
+  universe-logs:
     build:
       context: .
       dockerfile: Dockerfile

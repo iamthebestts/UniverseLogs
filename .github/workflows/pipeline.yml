@@ -58,4 +58,4 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Build Docker image
-        run: docker build -t UniverseLogs:check .
+        run: docker build -t universe-logs:check .
