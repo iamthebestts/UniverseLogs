@@ -1,0 +1,103 @@
+version: "3.9"
+
+services:
+  # Banco de Dados PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: logs-api-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-logsuser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-logspassword}
+      POSTGRES_DB: ${DB_NAME:-logsdb}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-logsuser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - logs-network
+    restart: unless-stopped
+
+  # Aplicação Logs API
+  logs-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: logs-api-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Banco de Dados
+      DATABASE_URL: postgresql://${DB_USER:-logsuser}:${DB_PASSWORD:-logspassword}@postgres:5432/${DB_NAME:-logsdb}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-20}
+      DB_IDLE_TIMEOUT: ${DB_IDLE_TIMEOUT:-30}
+      DB_SSL: ${DB_SSL:-false}
+      DB_PREPARE_STATEMENTS: ${DB_PREPARE_STATEMENTS:-true}
+      DB_DISABLE_FORCE_IPV4: ${DB_DISABLE_FORCE_IPV4:-false}
+
+      # Servidor
+      NODE_ENV: ${NODE_ENV:-prod}
+      PORT: ${PORT:-3000}
+      HOST: 0.0.0.0
+
+      # Segurança
+      MASTER_KEY: ${MASTER_KEY:-change-me-in-production}
+
+      # Lógica de Negócio
+      AUTO_CREATE_UNIVERSE: ${AUTO_CREATE_UNIVERSE:-true}
+      FETCH_ROBLOX_API: ${FETCH_ROBLOX_API:-true}
+
+      # Infraestrutura
+      RUN_MIGRATE: ${RUN_MIGRATE:-true}
+
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - logs-network
+    restart: unless-stopped
+    
+  # Opcional: pgAdmin para gerenciamento de banco de dados (Desenvolvimento)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: logs-api-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@logs-api.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - logs-network
+    restart: unless-stopped
+    profiles:
+      - dev
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  logs-network:
+    driver: bridge
