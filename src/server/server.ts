@@ -110,26 +110,38 @@ const loadRoutes = async (app: App) => {
     }
 
     const recorded: RecordedRoute[] = [];
+    const pushRecordedRoute = (
+      method: string,
+      path: string,
+      handlerOrOptions: unknown,
+      opts?: RouteOptionsWithAuth,
+    ) => {
+      const route: RecordedRoute = { method, path, handlerOrOptions };
+      if (opts !== undefined) {
+        route.opts = opts;
+      }
+      recorded.push(route);
+    };
 
     const proxy = {
       get: (p: string, handlerOrOptions: unknown, opts?: RouteOptionsWithAuth) => {
-        recorded.push({ method: "GET", path: p, handlerOrOptions, opts });
+        pushRecordedRoute("GET", p, handlerOrOptions, opts);
         return proxy;
       },
       post: (p: string, handlerOrOptions: unknown, opts?: RouteOptionsWithAuth) => {
-        recorded.push({ method: "POST", path: p, handlerOrOptions, opts });
+        pushRecordedRoute("POST", p, handlerOrOptions, opts);
         return proxy;
       },
       put: (p: string, handlerOrOptions: unknown, opts?: RouteOptionsWithAuth) => {
-        recorded.push({ method: "PUT", path: p, handlerOrOptions, opts });
+        pushRecordedRoute("PUT", p, handlerOrOptions, opts);
         return proxy;
       },
       patch: (p: string, handlerOrOptions: unknown, opts?: RouteOptionsWithAuth) => {
-        recorded.push({ method: "PATCH", path: p, handlerOrOptions, opts });
+        pushRecordedRoute("PATCH", p, handlerOrOptions, opts);
         return proxy;
       },
       delete: (p: string, handlerOrOptions: unknown, opts?: RouteOptionsWithAuth) => {
-        recorded.push({ method: "DELETE", path: p, handlerOrOptions, opts });
+        pushRecordedRoute("DELETE", p, handlerOrOptions, opts);
         return proxy;
       },
       use: () => proxy,

@@ -58,15 +58,23 @@ function parseQueryLogsPayload(payload: unknown): {
     const n = Number(p.limit);
     if (!Number.isNaN(n) && n >= 1) limit = Math.min(Math.floor(n), LOGS_LIST_MAX_LIMIT);
   }
-  return {
-    level: validLevel,
-    topic,
-    from,
-    to,
-    cursor_ts,
-    cursor_id,
-    limit,
-  };
+  const out: {
+    level?: "info" | "warn" | "error";
+    topic?: string;
+    from?: Date;
+    to?: Date;
+    cursor_ts?: Date;
+    cursor_id?: string;
+    limit?: number;
+  } = {};
+  if (validLevel !== undefined) out.level = validLevel;
+  if (topic !== undefined) out.topic = topic;
+  if (from !== undefined) out.from = from;
+  if (to !== undefined) out.to = to;
+  if (cursor_ts !== undefined) out.cursor_ts = cursor_ts;
+  if (cursor_id !== undefined) out.cursor_id = cursor_id;
+  if (limit !== undefined) out.limit = limit;
+  return out;
 }
 
 function parseQueryCountPayload(payload: unknown): {
@@ -75,10 +83,12 @@ function parseQueryCountPayload(payload: unknown): {
 } | null {
   if (payload == null || typeof payload !== "object") return null;
   const p = payload as Record<string, unknown>;
-  return {
-    from: parseOptionalIsoDate(p.from),
-    to: parseOptionalIsoDate(p.to),
-  };
+  const from = parseOptionalIsoDate(p.from);
+  const to = parseOptionalIsoDate(p.to);
+  const out: { from?: Date; to?: Date } = {};
+  if (from !== undefined) out.from = from;
+  if (to !== undefined) out.to = to;
+  return out;
 }
 
 function parseDeleteLogsPayload(payload: unknown): {
@@ -95,7 +105,15 @@ function parseDeleteLogsPayload(payload: unknown): {
   const level =
     p.level === "info" || p.level === "warn" || p.level === "error" ? p.level : undefined;
   const topic = typeof p.topic === "string" && p.topic.length <= 100 ? p.topic : undefined;
-  return { olderThan, confirm, level, topic };
+  const out: {
+    olderThan: Date;
+    confirm: boolean;
+    level?: "info" | "warn" | "error";
+    topic?: string;
+  } = { olderThan, confirm };
+  if (level !== undefined) out.level = level;
+  if (topic !== undefined) out.topic = topic;
+  return out;
 }
 
 function parseSendLogPayload(payload: unknown): {
@@ -116,12 +134,15 @@ function parseSendLogPayload(payload: unknown): {
         ? p.topic
         : undefined
       : undefined;
-  return {
-    level,
-    message,
-    metadata: p.metadata,
-    topic,
-  };
+  const out: {
+    level: "info" | "warn" | "error";
+    message: string;
+    metadata?: unknown;
+    topic?: string;
+  } = { level, message };
+  if (p.metadata !== undefined) out.metadata = p.metadata;
+  if (topic !== undefined) out.topic = topic;
+  return out;
 }
 
 function parseSendLogsBulkPayload(payload: unknown): {
@@ -223,15 +244,23 @@ export const registerRealtime = (app: App) => {
               throw new ValidationError("Invalid payload");
             }
             const limit = Math.min(Math.max(1, filters.limit ?? 20), LOGS_LIST_MAX_LIMIT);
-            const rows = await listLogs(universeId, {
-              level: filters.level,
-              topic: filters.topic,
-              from: filters.from,
-              to: filters.to,
-              cursorTimestamp: filters.cursor_ts,
-              cursorId: filters.cursor_id,
-              limit,
-            });
+            const listFilters: {
+              level?: "info" | "warn" | "error";
+              topic?: string;
+              from?: Date;
+              to?: Date;
+              cursorTimestamp?: Date;
+              cursorId?: string;
+              limit: number;
+            } = { limit };
+            if (filters.level !== undefined) listFilters.level = filters.level;
+            if (filters.topic !== undefined) listFilters.topic = filters.topic;
+            if (filters.from !== undefined) listFilters.from = filters.from;
+            if (filters.to !== undefined) listFilters.to = filters.to;
+            if (filters.cursor_ts !== undefined) listFilters.cursorTimestamp = filters.cursor_ts;
+            if (filters.cursor_id !== undefined) listFilters.cursorId = filters.cursor_id;
+
+            const rows = await listLogs(universeId, listFilters);
             const logsOut = rows.map((log) =>
               normalizeLogResponse(serialize(log) as Record<string, unknown>),
             );
@@ -257,10 +286,10 @@ export const registerRealtime = (app: App) => {
             if (filters === null) {
               throw new ValidationError("Invalid payload");
             }
-            const result = await getLogsCount(universeId, {
-              from: filters.from,
-              to: filters.to,
-            });
+            const countFilters: { from?: Date; to?: Date } = {};
+            if (filters.from !== undefined) countFilters.from = filters.from;
+            if (filters.to !== undefined) countFilters.to = filters.to;
+            const result = await getLogsCount(universeId, countFilters);
             ws.send(
               serialize({
                 type: "LOGS_COUNT_RESULT",
@@ -299,11 +328,14 @@ export const registerRealtime = (app: App) => {
 
             // Elevated permissions check (Placeholder: for now, any valid API key is allowed)
             // But we add audit logging
-            const deleted = await deleteLogs(universeId, {
-              olderThan: filters.olderThan,
-              level: filters.level,
-              topic: filters.topic,
-            });
+            const deleteFilters: {
+              olderThan: Date;
+              level?: "info" | "warn" | "error";
+              topic?: string;
+            } = { olderThan: filters.olderThan };
+            if (filters.level !== undefined) deleteFilters.level = filters.level;
+            if (filters.topic !== undefined) deleteFilters.topic = filters.topic;
+            const deleted = await deleteLogs(universeId, deleteFilters);
 
             logger.info("[ws] Logs deleted", {
               universeId,

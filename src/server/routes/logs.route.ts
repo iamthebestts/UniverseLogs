@@ -78,7 +78,10 @@ export default function registerLogsRoutes(app: RouteApp) {
       const q = ctx.query;
       const from = parseOptionalIsoDate(q.from);
       const to = parseOptionalIsoDate(q.to);
-      const result = await getLogsCount(universeId, { from, to });
+      const countFilters: { from?: Date; to?: Date } = {};
+      if (from !== undefined) countFilters.from = from;
+      if (to !== undefined) countFilters.to = to;
+      const result = await getLogsCount(universeId, countFilters);
       return result;
     },
     {
@@ -116,15 +119,23 @@ export default function registerLogsRoutes(app: RouteApp) {
       const level =
         q.level === "info" || q.level === "warn" || q.level === "error" ? q.level : undefined;
 
-      const rows = await listLogs(universeId, {
-        level,
-        topic: q.topic ?? undefined,
-        from,
-        to,
-        cursorTimestamp: cursorTs,
-        cursorId: q.cursor_id ?? undefined,
-        limit,
-      });
+      const listFilters: {
+        level?: "info" | "warn" | "error";
+        topic?: string;
+        from?: Date;
+        to?: Date;
+        cursorTimestamp?: Date;
+        cursorId?: string;
+        limit: number;
+      } = { limit };
+      if (level !== undefined) listFilters.level = level;
+      if (q.topic !== undefined) listFilters.topic = q.topic;
+      if (from !== undefined) listFilters.from = from;
+      if (to !== undefined) listFilters.to = to;
+      if (cursorTs !== undefined) listFilters.cursorTimestamp = cursorTs;
+      if (q.cursor_id !== undefined) listFilters.cursorId = q.cursor_id;
+
+      const rows = await listLogs(universeId, listFilters);
 
       const logsOut = rows.map((log) =>
         normalizeLogResponse(serialize(log) as Record<string, unknown>),
@@ -210,12 +221,14 @@ export default function registerLogsRoutes(app: RouteApp) {
       const universeId = ctx.universeId;
       const { level, message, metadata, topic } = ctx.body;
 
-      const log = await createLog(universeId, {
+      const logData: LogBody = {
         level,
         message,
-        metadata,
-        topic,
-      });
+      };
+      if (metadata !== undefined) logData.metadata = metadata;
+      if (topic !== undefined) logData.topic = topic;
+
+      const log = await createLog(universeId, logData);
 
       return normalizeLogResponse(serialize(log) as Record<string, unknown>);
     },
@@ -248,6 +261,9 @@ export default function registerLogsRoutes(app: RouteApp) {
     async (ctx) => {
       const universeId = ctx.universeId;
       const { id } = ctx.params;
+      if (!id) {
+        throw new ValidationError("Parâmetro 'id' é obrigatório.");
+      }
 
       const log = await getLogById(id, universeId);
       if (!log) {
@@ -283,11 +299,18 @@ export default function registerLogsRoutes(app: RouteApp) {
       }
       const level =
         q.level === "info" || q.level === "warn" || q.level === "error" ? q.level : undefined;
-      const deleted = await deleteLogs(BigInt(ctx.universeId as string | number | bigint), {
-        olderThan,
-        level,
-        topic: q.topic ?? undefined,
-      });
+      const deleteFilters: {
+        olderThan: Date;
+        level?: "info" | "warn" | "error";
+        topic?: string;
+      } = { olderThan };
+      if (level !== undefined) deleteFilters.level = level;
+      if (q.topic !== undefined) deleteFilters.topic = q.topic;
+
+      const deleted = await deleteLogs(
+        BigInt(ctx.universeId as string | number | bigint),
+        deleteFilters,
+      );
       return { deleted };
     },
     {

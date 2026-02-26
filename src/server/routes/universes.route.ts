@@ -62,7 +62,13 @@ export default function registerUniverseRoutes(app: RouteApp) {
         );
       }
 
-      const manual = name ? { name, description, extra: {} } : undefined;
+      const manual = name
+        ? {
+            name,
+            ...(description !== undefined ? { description } : {}),
+            extra: {},
+          }
+        : undefined;
       const universe = await createUniverse(parsed, manual);
 
       let key: string | undefined;

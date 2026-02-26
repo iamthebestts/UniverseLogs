@@ -16,6 +16,17 @@ vi.mock("@/env", () => ({
 
 type MockApp = { ws: ReturnType<typeof vi.fn> };
 
+const getWsOptions = (app: MockApp) => {
+  const firstCall = app.ws.mock.calls[0];
+  expect(firstCall).toBeDefined();
+  const wsOptions = firstCall?.[1];
+  expect(wsOptions).toBeDefined();
+  return wsOptions as {
+    open: (ws: WSLike) => Promise<void>;
+    message: (...args: any[]) => Promise<void>;
+  };
+};
+
 describe("WebSocket System", () => {
   let mockWS: WSLike & { data: Record<string, any>; send: Mock; close: Mock };
 
@@ -74,7 +85,7 @@ describe("WebSocket System", () => {
       const app: MockApp = { ws: vi.fn() };
       registerRealtime(app as any);
 
-      const wsOptions = app.ws.mock.calls[0][1];
+      const wsOptions = getWsOptions(app);
       await wsOptions.open(mockWS);
 
       expect(mockWS.close).toHaveBeenCalled();
@@ -89,7 +100,7 @@ describe("WebSocket System", () => {
 
       const app: MockApp = { ws: vi.fn() };
       registerRealtime(app as any);
-      const wsOptions = app.ws.mock.calls[0][1];
+      const wsOptions = getWsOptions(app);
 
       await wsOptions.open(mockWS);
 
@@ -111,7 +122,7 @@ describe("WebSocket System", () => {
 
       const app: MockApp = { ws: vi.fn() };
       registerRealtime(app as any);
-      const wsOptions = app.ws.mock.calls[0][1];
+      const wsOptions = getWsOptions(app);
 
       await wsOptions.open(mockWS);
 
@@ -132,7 +143,7 @@ describe("WebSocket System", () => {
     beforeEach(() => {
       app = { ws: vi.fn() };
       registerRealtime(app as any);
-      wsOptions = app.ws.mock.calls[0][1];
+      wsOptions = getWsOptions(app);
     });
 
     const openWithValidKey = async (universeId: bigint) => {

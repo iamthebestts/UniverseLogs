@@ -61,10 +61,10 @@ export interface ApiErrorData {
 export class ApiError extends Error {
   code: ErrorCode;
   statusCode: number;
-  details?: Record<string, unknown>;
+  details: Record<string, unknown> | undefined = undefined;
   timestamp: string;
-  path?: string;
-  requestId?: string;
+  path: string | undefined = undefined;
+  requestId: string | undefined = undefined;
 
   constructor(
     code: ErrorCode,
@@ -81,24 +81,25 @@ export class ApiError extends Error {
     this.code = code;
     this.message = message;
     this.statusCode = statusCode;
-    this.details = options?.details;
-    this.path = options?.path;
-    this.requestId = options?.requestId;
+    if (options?.details !== undefined) this.details = options.details;
+    if (options?.path !== undefined) this.path = options.path;
+    if (options?.requestId !== undefined) this.requestId = options.requestId;
     this.timestamp = new Date().toISOString();
 
     Object.setPrototypeOf(this, ApiError.prototype);
   }
 
   toJSON(): ApiErrorData {
-    return {
+    const data: ApiErrorData = {
       code: this.code,
       message: this.message,
       statusCode: this.statusCode,
-      details: this.details,
       timestamp: this.timestamp,
-      path: this.path,
-      requestId: this.requestId,
     };
+    if (this.details !== undefined) data.details = this.details;
+    if (this.path !== undefined) data.path = this.path;
+    if (this.requestId !== undefined) data.requestId = this.requestId;
+    return data;
   }
 }
 
@@ -136,11 +137,15 @@ export class AuthError extends ApiError {
     },
   ) {
     const code = options?.code ?? ErrorCode.INVALID_API_KEY;
-    super(code, message, 401, {
-      details: options?.details,
-      path: options?.path,
-      requestId: options?.requestId,
-    });
+    const baseOptions: {
+      details?: Record<string, unknown>;
+      path?: string;
+      requestId?: string;
+    } = {};
+    if (options?.details !== undefined) baseOptions.details = options.details;
+    if (options?.path !== undefined) baseOptions.path = options.path;
+    if (options?.requestId !== undefined) baseOptions.requestId = options.requestId;
+    super(code, message, 401, baseOptions);
     this.name = "AuthError";
     Object.setPrototypeOf(this, AuthError.prototype);
   }
@@ -170,7 +175,7 @@ export class AuthorizationError extends ApiError {
  * For rate limit exceeded
  */
 export class RateLimitError extends ApiError {
-  retryAfter?: number;
+  retryAfter: number | undefined = undefined;
 
   constructor(
     message: string = "Rate limit exceeded",
@@ -181,16 +186,18 @@ export class RateLimitError extends ApiError {
       requestId?: string;
     },
   ) {
-    super(ErrorCode.RATE_LIMITED, message, 429, {
-      details: {
-        ...options?.details,
-        retryAfter,
-      },
-      path: options?.path,
-      requestId: options?.requestId,
-    });
+    const details: Record<string, unknown> = { ...(options?.details ?? {}) };
+    if (retryAfter !== undefined) details.retryAfter = retryAfter;
+    const baseOptions: {
+      details?: Record<string, unknown>;
+      path?: string;
+      requestId?: string;
+    } = { details };
+    if (options?.path !== undefined) baseOptions.path = options.path;
+    if (options?.requestId !== undefined) baseOptions.requestId = options.requestId;
+    super(ErrorCode.RATE_LIMITED, message, 429, baseOptions);
     this.name = "RateLimitError";
-    this.retryAfter = retryAfter;
+    if (retryAfter !== undefined) this.retryAfter = retryAfter;
     Object.setPrototypeOf(this, RateLimitError.prototype);
   }
 }
@@ -237,7 +244,7 @@ export class ConflictError extends ApiError {
  * For database operations failures
  */
 export class DatabaseError extends ApiError {
-  originalError?: Error;
+  originalError: Error | undefined = undefined;
 
   constructor(
     message: string = "Database error",
@@ -250,7 +257,7 @@ export class DatabaseError extends ApiError {
   ) {
     super(ErrorCode.DATABASE_ERROR, message, 500, options);
     this.name = "DatabaseError";
-    this.originalError = originalError;
+    if (originalError !== undefined) this.originalError = originalError;
     Object.setPrototypeOf(this, DatabaseError.prototype);
   }
 }

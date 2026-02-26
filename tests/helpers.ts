@@ -124,7 +124,7 @@ export const testData = {
    */
   generatePath: (): string => {
     const paths = ["/api/logs", "/api/keys", "/api/health", "/api/users"];
-    return paths[Math.floor(Math.random() * paths.length)];
+    return paths[Math.floor(Math.random() * paths.length)] ?? "/api/health";
   },
 
   /**

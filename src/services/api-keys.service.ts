@@ -162,5 +162,5 @@ export async function countActiveApiKeys(): Promise<number> {
     .from(apiKeys)
     .where(eq(apiKeys.is_active, true));
 
-  return result.count;
+  return Number(result?.count ?? 0);
 }

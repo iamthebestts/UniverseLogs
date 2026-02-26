@@ -160,14 +160,14 @@ export function setupErrorHandler(app: any) {
       statusCode,
       code: errorCode,
       message: errorMessage,
-      path,
       method,
-      requestId,
       timestamp,
       isDevelopment: showDetailedErrors,
-      stack: error instanceof Error ? error.stack : undefined,
-      originalError: error instanceof Error ? error : undefined,
     };
+    if (path !== undefined) logContext.path = path;
+    if (requestId !== undefined) logContext.requestId = requestId;
+    if (error instanceof Error && error.stack !== undefined) logContext.stack = error.stack;
+    if (error instanceof Error) logContext.originalError = error;
 
     logger.logError(logContext);
 
@@ -176,10 +176,10 @@ export function setupErrorHandler(app: any) {
       message: errorMessage,
       statusCode,
       timestamp,
-      path,
-      requestId,
-      details,
     };
+    if (path !== undefined) errorResponse.path = path;
+    if (requestId !== undefined) errorResponse.requestId = requestId;
+    if (details !== undefined) errorResponse.details = details;
 
     set.status = statusCode;
     set.headers["content-type"] = "application/json";
