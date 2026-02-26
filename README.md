@@ -1,6 +1,6 @@
-# Logs API 🚀
+# UniverseLogs API 🚀
 
-[![CI/CD Pipeline](https://github.com/iamthebestts/logs-api/actions/workflows/pipeline.yml/badge.svg)](https://github.com/iamthebestts/logs-api/actions/workflows/pipeline.yml)
+[![CI/CD Pipeline](https://github.com/iamthebestts/UniverseLogs/actions/workflows/pipeline.yml/badge.svg)](https://github.com/iamthebestts/UniverseLogs/actions/workflows/pipeline.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Tech Stack](https://img.shields.io/badge/stack-Bun_Elysia_Drizzle_Postgres-orange)
 
@@ -67,8 +67,8 @@ flowchart LR
 
 ### 2. Instalação e Configuração
 ```bash
-git clone https://github.com/iamthebestts/logs-api
-cd logs-api
+git clone https://github.com/iamthebestts/UniverseLogs
+cd UniverseLogs
 bun install
 cp .env.example .env
 ```
