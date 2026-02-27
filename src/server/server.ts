@@ -227,7 +227,7 @@ export const buildApp = async () => {
   app.use(cors());
   app.use(securityHeaders);
 
-  if (env.NODE_ENV !== "test") {
+  if (env.NODE_ENV === "dev") {
     const { swagger } = await import("@elysiajs/swagger");
     app.use(
       swagger({

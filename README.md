@@ -1,196 +1,167 @@
-# UniverseLogs API 🚀
+# UniverseLogs: Fundação Escalável de Observabilidade
 
 [![CI/CD Pipeline](https://github.com/iamthebestts/UniverseLogs/actions/workflows/pipeline.yml/badge.svg)](https://github.com/iamthebestts/UniverseLogs/actions/workflows/pipeline.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Tech Stack](https://img.shields.io/badge/stack-Bun_Elysia_Drizzle_Postgres-orange)
+![Runtime](https://img.shields.io/badge/runtime-Bun-black)
+![Framework](https://img.shields.io/badge/framework-Elysia-purple)
+![Database](https://img.shields.io/badge/database-PostgreSQL-blue)
+![ORM](https://img.shields.io/badge/orm-Drizzle-orange)
 
-**API de Ingestão e Consulta de Logs Estruturados de Alta Performance.**
+O **UniverseLogs** é um projeto open-source que serve como uma **fundação robusta e escalável** para sistemas de observabilidade multi-tenant. Focado em ambientes distribuídos e jogos (como Roblox e Unity), ele demonstra padrões arquiteturais para lidar com alto volume de ingestão de logs e streaming em tempo real.
 
-Projetada para resolver o problema de observabilidade em **Jogos Distribuídos (Roblox/Unity)** e **Microsserviços**, onde a centralização de logs em tempo real é crítica para debugging, auditoria e telemetria.
+Este projeto foi construído para demonstrar experiência na criação de APIs escaláveis, performáticas e resilientes. **É uma base sólida:** quem quiser pode fazer um fork, escalar, adicionar mais camadas de segurança (como criptografia no banco de dados) e transformá-lo no seu próprio produto!
 
 ---
 
-## 🏗️ Arquitetura e Performance
+## 🎯 Proposta e Objetivos
 
-A solução utiliza um design focado em **baixa latência de escrita** (Write-Heavy) e **isolamento multi-tenant**.
+Diferente de sistemas excessivamente complexos, o UniverseLogs foca no que importa para não gargalar sua aplicação principal: ingestão rápida e desacoplamento. 
+
+- **Arquitetura Desacoplada:** Um motor de ingestão em lote (batching) protege o banco de dados contra picos massivos de requisições.
+- **Isolamento de Tenants:** Desenvolvido nativamente para servir múltiplos projetos ("Universes") com chaves de API com hash e separação clara de dados.
+- **Sinergia em Tempo Real:** Transmissão de logs no exato momento em que chegam através de WebSockets.
+- **Evolução Aberta:** Uma base de código limpa em TypeScript (com Bun + Elysia), pronta para receber features de billing, retenção dinâmica, criptografia de ponta a ponta, etc.
+
+## 🎮 O que dá pra construir com essa base?
+
+- Painéis de acompanhamento de gameplay em tempo real.
+- Sistemas de auditoria de ações administrativas em jogos/sistemas.
+- Centralização de telemetria e análise de economia virtual.
+- Agregadores de erros e crashes distribuídos.
+
+---
+
+## 🏗️ Como a Arquitetura Funciona
+
+A arquitetura resolve o principal problema de APIs de log: a sobrecarga do banco de dados (IOPS). Para isso, a escrita principal é separada da persistência através de um buffer em memória.
+
+1. **Gateway (Recepção):** Valida a API Key, aplica Rate Limit e aceita a requisição.
+2. **Buffer Engine (Memória):** Coloca o log em uma fila de processamento rápido. A API já responde `200 OK` para o usuário não ficar esperando.
+3. **Distribuição e Persistência:** A cada *X* segundos (ou tamanho de fila), os logs são salvos em lote (batch) no PostgreSQL e disparados simultaneamente para todos os clientes conectados via WebSocket.
 
 ```mermaid
 flowchart LR
 
   %% CLIENT
-  C[Game Clients<br/>Roblox · Unity · Apps]
+  C[Clientes Distribuídos<br/>Roblox · Unity · Microsserviços]
 
   %% GATEWAY
-  R[Router]
-  RL[Rate Limiter]
-  AUTH{API Key<br/>Validation}
+  R[Roteador de Alta Performance]
+  RL[Rate Limit]
+  AUTH{Validação de<br/>API Key}
 
   %% ENGINE
-  LB[(In-Memory<br/>Log Buffer)]
-  WS[WebSocket<br/>Manager]
+  LB[(Buffer de Logs<br/>em Memória)]
+  WS[Transmissor<br/>WebSocket]
 
   %% STORAGE
   DB[(PostgreSQL<br/>JSONB)]
 
   %% DASHBOARD
-  DASH[Live Dashboard]
+  DASH[Dashboard / Consumidores]
 
   %% FLOW
-  C -->|HTTPS| R
+  C -->|POST /logs| R
   R --> RL --> AUTH
-  AUTH -->|Async Write| LB
-  AUTH -->|Realtime| WS
-  LB -->|Batch Insert 5s| DB
-  WS -->|WS Stream| DASH
+  AUTH -->|Devolve 200 OK| LB
+  AUTH -->|Transmissão Ao Vivo| WS
+  LB -->|Persitência em Lote (Batch)| DB
+  WS -->|Stream em Tempo Real| DASH
 ```
 
-### Destaques Técnicos
-- **In-Memory Log Buffer:** Agrupamento de inserções em lotes (Batch Processing) para evitar gargalos no PostgreSQL.
-- **Realtime WebSockets:** Streaming de logs instantâneo para dashboards conectados.
-- **Multi-Tenant Nativo:** Isolamento rigoroso de dados por `UniverseId` (Tenant) via hashes de API Keys.
-- **Segurança Pronta:** Rate limiting granular, security headers (OWASP) e Graceful Shutdown.
-- **Logger Estruturado:** Geração de logs JSON em produção para fácil integração com Datadog/ELK.
+### Detalhes Técnicos
 
-### Métricas e Performance
-- **Escrita (POST /api/logs):** Latência alvo &lt; 10 ms (p95) em ambiente típico; inserções são bufferizadas e persistidas em batch a cada 5 s.
-- **Leitura (GET /api/logs/:id, consultas):** Índices em `universe_id` e `timestamp`; consultas sempre filtradas por tenant.
-- **WebSocket:** Baixa latência de broadcast; suporta PING/PONG e comandos (QUERY_LOGS, SEND_LOG) no mesmo canal.
-- **Benchmarks:** Execute `BENCHMARK_API_KEY=sua-chave bun run benchmark` (requer servidor rodando) para um teste de carga simples. Resultados de referência em [docs/operations.md](./docs/operations.md#métricas-e-benchmarks).
+- **Batching Integrado:** Evita conexões e inserções desnecessárias no banco de dados agrupando operações.
+- **Performance Orientada:** Uso de tecnologias de ponta como `Bun`, `ElysiaJS` e `PostgreSQL` puro via protocolo eficiente.
+- **Logs Estruturados:** A coluna `metadata` usa `JSONB`, permitindo que os desenvolvedores injetem objetos complexos e depois filtrem ou exportem isso facilmente de acordo com a regra de negócio do seu projeto.
 
 ---
 
-## ⚡ Início Rápido (Local)
+## 🚀 Como Rodar Localmente
 
-### 1. Preparação
-- **Bun** instalado (`curl -fsSL https://bun.sh/install | bash`)
-- Instância do **PostgreSQL** ativa
+Se você deseja testar a arquitetura, contribuir ou criar seu próprio fork:
 
-### 2. Instalação e Configuração
+### Pré-requisitos
+- **Bun** (versão 1.x+)
+- **PostgreSQL 15+**
+
+### Configurando
 ```bash
 git clone https://github.com/iamthebestts/UniverseLogs
 cd UniverseLogs
 bun install
 cp .env.example .env
 ```
-> Edite o `.env` e configure sua `DATABASE_URL` e `MASTER_KEY`.
+> Configure a sua `DATABASE_URL` e uma `MASTER_KEY` super secreta no seu `.env`.
 
-### 3. Execução
+### Rodando
 ```bash
-bun run dev   # Modo desenvolvimento (com logs coloridos)
-bun run start # Modo produção (performance máxima)
+bun run dev   # Modo de desenvolvimento (logs formatados no console)
+bun run start # Modo de produção (performance em primeiro lugar)
 ```
 
 ---
 
-## 🛠️ Primeiros Passos (Operacional)
+## 📖 Testando a API
 
-Após subir a API, você precisa criar sua primeira chave de acesso:
-
-1. **Crie uma API Key via Rota Interna:**
+1. **Crie um Universo e pegue a Chave (Ação de Admin):**
    ```bash
    curl -X POST http://localhost:3000/internal/keys/register \
      -H "Content-Type: application/json" \
-     -H "x-master-key: SUA_MASTER_KEY_AQUI" \
+     -H "x-master-key: SUA_MASTER_KEY_DO_ENV" \
      -d '{"universeId": "123456"}'
    ```
-2. **Use a chave retornada para enviar logs:**
+2. **Faça o "Jogo" enviar um Log:**
    ```bash
    curl -X POST http://localhost:3000/api/logs \
-     -H "x-api-key: CHAVE_RETORNADA" \
-     -d '{"level": "info", "message": "API operacional!"}'
+     -H "x-api-key: SUA_CHAVE_GERADA_AQUI" \
+     -d '{"level": "info", "message": "Carro explodiu no mapa", "metadata": {"x": 10, "y": 20}}'
    ```
 
 ---
 
-## 💻 Exemplo de Cliente (Node/Bun)
+## 🗺️ O que pode ser adicionado (Ideias para Fork)
 
-Snippet mínimo para enviar logs e ler um log por ID usando a API:
+Como dito, esta é uma fundação excelente. Alguns caminhos naturais de evolução para quem deseja escalar ainda mais essa base:
 
-```typescript
-const API_BASE = "http://localhost:3000";
-const API_KEY = "sua-chave-aqui";
-
-// Enviar um log
-async function sendLog(level: string, message: string, metadata?: Record<string, unknown>) {
-  const res = await fetch(`${API_BASE}/api/logs`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": API_KEY,
-    },
-    body: JSON.stringify({ level, message, ...(metadata && { metadata }) }),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-
-// Buscar um log por ID
-async function getLog(id: string) {
-  const res = await fetch(`${API_BASE}/api/logs/${id}`, {
-    headers: { "x-api-key": API_KEY },
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-
-// Uso
-const log = await sendLog("info", "Evento do jogo", { place_id: "123", user_id: "456" });
-console.log("Log criado:", log.id);
-const same = await getLog(log.id);
-console.log("Log lido:", same);
-```
-
-Para **streaming em tempo real**, use o WebSocket documentado em [docs/websocket.md](./docs/websocket.md).
+- [ ] Criptografia de banco de dados (At-Rest Encryption) para dados sensíveis ou PII.
+- [ ] Implementação de filas externas (como Kafka, Redis Streams ou RabbitMQ) caso precise distribuir os "workers" em vários containers.
+- [ ] Rotinas (CRON jobs) automáticas para limpeza de logs antigos (Retention policies).
+- [ ] Sistema de Billing (Stripe) para comercializar infraestrutura SaaS.
 
 ---
 
-## 🧪 Qualidade e Testes
+## 📚 Documentações Técnicas
 
-O projeto possui uma suíte de testes robusta que garante a integridade dos fluxos críticos.
+- 🌐 **[Referência da API REST](./docs/rotas.md)**
+- 🔌 **[Documentação do WebSocket](./docs/websocket.md)**
+- 🚀 **[Guia de Deploy (Docker/Discloud)](./docs/deploy.md)**
+- 📖 **Swagger/OpenAPI:** Disponível acessando `/docs` no navegador quando estiver rodando no modo `dev`.
 
-- **Testes Unitários/Integração:** Validação de lógica com mocks.
-- **Testes E2E (End-to-End):** Validação real com banco de dados, testando autenticação, buffer e limites de taxa.
+---
+
+## 🧪 Qualidade do Código
+
+A base conta com testes unitários, de integração (E2E) com banco de dados em memória e rate limiting simulado, para que qualquer modificação continue provando a resiliência do sistema.
 
 ```bash
-bun test              # Roda testes unitários
-bun run test:e2e      # Roda testes E2E (Requer banco 'logs_test')
-bun run test:coverage # Relatório de cobertura
+bun run test:e2e      # Fluxos de Integração Reais
+bun run test:coverage # Relatório de Testes
 ```
-
----
-
-## 📖 Documentação da API (Swagger)
-
-Com o servidor rodando, a documentação interativa está disponível em:
-
-- **Swagger UI:** [http://localhost:3000/docs](http://localhost:3000/docs) (ou `https://<seu-dominio>/docs` em produção)
-
-Lá você pode explorar todos os endpoints, autenticar com `X-API-Key` / `X-Master-Key` e testar as requisições diretamente no navegador.
-
----
-
-## 📚 Documentação Complementar
-
-- 🌐 **[Guia de Rotas REST](./docs/rotas.md)**
-- 🔌 **[WebSocket Realtime](./docs/websocket.md)** — streaming de logs em tempo real
-- 🚀 **[Guia de Deployment](./docs/deploy.md)**
 
 ---
 
 ## 📄 Licença
 
-Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
+Distribuído sob a Licença MIT. Sinta-se livre para copiar, modificar, fechar código ou usar comercialmente. (Veja o arquivo `LICENSE` para mais informações).
 
 ---
-Desenvolvido por [iamthebestts](https://github.com/iamthebestts) 🚀
 
----
+Feito com 💡 por **[iamthebestts](https://github.com/iamthebestts)**. Serve como uma demonstração da minha experiência em construir serviços modernos de ponta a ponta.
 
 <div align="center">
-  <img src="./images/Nexo.png" alt="Nexo+ Logo" width="120" />
-  <h3>🚀 Precisa de uma API ou Bot Personalizado?</h3>
-  <p>A <strong>Nexo+</strong> vai além do Roblox! Se você precisa de uma API específica, integração de sistemas ou um bot dedicado para automatizar seus processos, nós desenvolvemos a solução ideal para você.</p>
-  <p>Unimos criatividade e eficiência para oferecer serviços completos no <strong>Roblox Studio</strong> (builds e scripts) e desenvolvimento especializado de <strong>APIs e Bots</strong> sob medida.</p>
-  <p><strong>Transforme sua ideia em realidade agora:</strong><br/>
-  👉 <a href="https://discord.gg/EPucmXpDQR">https://discord.gg/EPucmXpDQR</a></p>
+  <img src="./images/Nexo.png" alt="Nexo+ Logo" width="100" />
+  <h3>Construindo APIs e Bots de Sucesso</h3>
+  <p>Na <strong>Nexo+</strong>, levamos soluções para fora dos limites convencionais! Desenvolvemos APIs de back-end dedicadas, integração de sistemas robustos e bots sob medida para automatizar e conectar seu ecossistema ao seu público.</p>
+  <p><a href="https://discord.gg/EPucmXpDQR">Fale conosco no Discord da Nexo+</a></p>
 </div>
