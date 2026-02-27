@@ -41,7 +41,6 @@ A arquitetura resolve o principal problema de APIs de log: a sobrecarga do banco
 
 ```mermaid
 flowchart LR
-
   %% CLIENT
   C[Clientes Distribuídos<br/>Roblox · Unity · Microsserviços]
 
@@ -61,11 +60,14 @@ flowchart LR
   DASH[Dashboard / Consumidores]
 
   %% FLOW
-  C -->|POST /logs| R
-  R --> RL --> AUTH
+  C --> R
+  R --> RL
+  RL --> AUTH
+  
   AUTH -->|Devolve 200 OK| LB
   AUTH -->|Transmissão Ao Vivo| WS
-  LB -->|Persitência em Lote (Batch)| DB
+  
+  LB -->|Persistência em Lote| DB
   WS -->|Stream em Tempo Real| DASH
 ```
 
