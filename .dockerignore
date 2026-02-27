@@ -1,0 +1,43 @@
+# Dev & VCS
+.vscode/
+.serena/
+.git/
+.github/
+
+# Node
+node_modules
+bun.lockb
+
+# Git
+.git
+.gitignore
+
+# Tests
+tests/
+e2e-tests/
+
+# Docs & Assets desnecessários
+docs/
+images/
+*.md
+!README.md
+
+# Config dev
+biome.json
+*.tsbuildinfo
+.cache/
+.serena/
+
+# Logs
+*.log
+
+# Env
+.env*
+!.env.production
+!.env.example
+
+# Zip
+*.zip
+
+# SDK
+sdk/

@@ -11,6 +11,8 @@ O **UniverseLogs** é um projeto open-source que serve como uma **fundação rob
 
 Este projeto foi construído para demonstrar experiência na criação de APIs escaláveis, performáticas e resilientes. **É uma base sólida:** quem quiser pode fazer um fork, escalar, adicionar mais camadas de segurança (como criptografia no banco de dados) e transformá-lo no seu próprio produto!
 
+> ⚠️ **IMPORTANTE**: Este módulo deve ser usado **exclusivamente no servidor**. Leia a [Política de Segurança](SECURITY.md) antes de usar em produção.
+
 ---
 
 ## 🎯 Proposta e Objetivos
@@ -122,6 +124,49 @@ bun run start # Modo de produção (performance em primeiro lugar)
 
 ---
 
+## 📦 SDKs e Clientes Oficiais
+
+Este projeto oferece SDKs oficiais para facilitar a integração com diferentes plataformas e linguagens. Atualmente disponível:
+
+### 🎮 Roblox (Luau)
+
+Um cliente completo e resiliente para jogos Roblox.
+
+- **Localização**: [`/sdk/roblox/`](./sdk/roblox/)
+- **Documentação**: [📖 Guia Completo do Cliente Roblox](./sdk/roblox/docs.md)
+- **Features**:
+  - ⚡ Buffer em memória com envio em lote (batching)
+  - 🛡️ Fallback automático com DataStore em caso de falha
+  - 🚫 Sistema anti-spam (throttling) integrado
+  - 🔍 Sanitização automática de tipos Roblox (Vector3, CFrame, etc.)
+  - 📊 Captura automática de erros (opcional)
+
+**Instalação rápida:**
+```lua
+local ServerStorage = game:GetService("ServerStorage")
+local UniverseLogs = require(ServerStorage.UniverseLogs)
+
+local ul = UniverseLogs.new("sua-api-key", {
+    baseUrl = "https://sua-api.com"
+})
+
+ul:init()
+ul:info("Servidor iniciado!", { topic = "boot" })
+```
+
+### 🔮 Futuras Linguagens (Em Planejamento)
+
+Com o tempo, pretendemos adicionar SDKs oficiais para:
+
+- 🐍 **Python** — Para backends, scripts de automação e data science
+- 🟨 **JavaScript/TypeScript** — Para Node.js, Deno e Bun
+- 🦀 **Rust** — Para aplicações de alta performance
+- ☕ **Java** — Para servidores Minecraft (Spigot/Paper) e aplicações enterprise
+
+**Contribuições são bem-vindas!** Se você desenvolver um cliente para outra linguagem, abra uma PR para adicioná-lo à pasta `/sdk/`.
+
+---
+
 ## 🗺️ O que pode ser adicionado (Ideias para Fork)
 
 Como dito, esta é uma fundação excelente. Alguns caminhos naturais de evolução para quem deseja escalar ainda mais essa base:
@@ -150,6 +195,20 @@ A base conta com testes unitários, de integração (E2E) com banco de dados em 
 bun run test:e2e      # Fluxos de Integração Reais
 bun run test:coverage # Relatório de Testes
 ```
+
+---
+
+## 🔒 Segurança e Responsabilidade
+
+Este projeto lida com operações sensíveis de leitura/escrita em banco de dados. Antes de usar em produção, **leia atentamente nossa [Política de Segurança](SECURITY.md)**.
+
+**Principais pontos:**
+- ✅ Use apenas em `ServerScriptService` ou `ServerStorage`
+- ❌ Nunca exponha API Keys ao cliente
+- ⚖️ Você é responsável pela conformidade legal (LGPD, GDPR, COPPA)
+- 💰 Monitore custos de armazenamento e tráfego
+
+**[📖 Leia a Política Completa →](SECURITY.md)**
 
 ---
 
