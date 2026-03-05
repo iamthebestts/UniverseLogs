@@ -1,20 +1,31 @@
 ---
 name: Feature Request
-about: Suggest an idea for this project
-title: ''
-labels: ''
-assignees: ''
-
+about: Suggest a new capability for the API, SDK, or documentation
+title: "[Feature] "
+labels: enhancement
+assignees: ""
 ---
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex: I'm always frustrated when [...]
+## Summary
 
-**Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+One or two sentences describing the feature and the benefit (e.g. for operators, SDK users, or integration).
 
-**Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+## Problem or Motivation
 
-**Additional context**
-Add any other context or screenshots about the feature request here.
+What problem does this solve, or what use case does it enable?  
+Example: "We need to …" or "It would be easier to … if …"
+
+## Proposed Solution
+
+- **What:** Clear description of the new behavior (endpoint, option, SDK method, or doc change).
+- **Where:** API / SDK (Roblox, other) / Documentation / Tooling.
+- **Scope:** Minimal change vs. larger refactor (your best guess).
+
+## Alternatives Considered
+
+Briefly mention other approaches (e.g. different API shape, external tool) and why you prefer this one.
+
+## Additional Context
+
+- Links to similar features elsewhere, or prior discussions.
+- Willingness to contribute (e.g. PR, docs, or testing): optional.
