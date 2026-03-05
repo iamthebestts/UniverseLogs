@@ -19,5 +19,8 @@
     "source.organizeImports": "never",
     "source.organizeImports.biome": "explicit",
     "source.fixAll.biome": "explicit"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
   }
 }

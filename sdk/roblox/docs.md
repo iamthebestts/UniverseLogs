@@ -1,60 +1,60 @@
 # UniverseLogs — Roblox Client
 
-> Cliente de logging de nível corporativo (Enterprise-grade) para Roblox. Assíncrono, bufferizado, resiliente a falhas e altamente observável.
+> Enterprise-grade logging client for Roblox. Asynchronous, buffered, failure-resilient, and highly observable.
 
 ---
 
-## Índice
+## Table of Contents
 
-- [Instalação](#instalação)
-- [Início Rápido](#início-rápido)
-- [Inicialização (Construtor)](#inicialização-constructor)
-- [Referência de Configuração](#referência-de-configuração)
-- [Métodos da API](#métodos-da-api)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Initialization (Constructor)](#initialization-constructor)
+- [Configuration Reference](#configuration-reference)
+- [API Methods](#api-methods)
   - [Core](#core)
-  - [Atalhos de Nível (Shorthands)](#atalhos-de-nível-shorthands)
-  - [Leitura e Gerenciamento](#leitura-e-gerenciamento)
-- [Sistemas Internos](#sistemas-internos)
-  - [Como o Buffer Funciona](#como-o-buffer-funciona)
-  - [Fallback com DataStore](#fallback-com-datastore)
-  - [Sistema de Throttling (Anti-Spam)](#sistema-de-throttling-anti-spam)
-  - [Sanitização de Metadados](#sanitização-de-metadados)
-- [Casos de Uso Avançados](#casos-de-uso-avançados)
-- [Limites do Servidor (Rate Limits)](#limites-do-servidor-rate-limits)
+  - [Level Shorthands](#level-shorthands)
+  - [Read and Management](#read-and-management)
+- [Internal Systems](#internal-systems)
+  - [How the Buffer Works](#how-the-buffer-works)
+  - [DataStore Fallback](#datastore-fallback)
+  - [Throttling (Anti-Spam)](#throttling-anti-spam)
+  - [Metadata Sanitization](#metadata-sanitization)
+- [Advanced Use Cases](#advanced-use-cases)
+- [Server Rate Limits](#server-rate-limits)
 
 ---
 
-## Instalação
+## Installation
 
-1. Cole o módulo (ModuleScript) dentro de `ServerStorage` (ou `ReplicatedStorage` se preferir) e renomeie-o para `UniverseLogs`.
-2. Nas configurações do seu jogo, habilite as requisições HTTP (`Game Settings → Security → Allow HTTP Requests`).
-3. Caso vá utilizar o sistema de segurança contra perda de dados (DataStore Fallback), certifique-se de habilitar também o acesso à DataStore API.
+1. Place the module (ModuleScript) in `ServerStorage` (or `ReplicatedStorage` if you prefer) and name it `UniverseLogs`.
+2. In your game settings, enable HTTP requests (`Game Settings → Security → Allow HTTP Requests`).
+3. If you use the data-loss safety system (DataStore Fallback), enable DataStore API access as well.
 
 ---
 
-## Início Rápido
+## Quick Start
 
-O exemplo abaixo mostra como iniciar o módulo e enviar o seu primeiro log de inicialização do servidor.
+The example below shows how to start the module and send your first server startup log.
 
 ```lua
 local ServerStorage = game:GetService("ServerStorage")
 local UniverseLogs = require(ServerStorage.UniverseLogs)
 
--- 1. Instanciar o cliente
-local ul = UniverseLogs.new("sua-api-key-aqui", {
-    baseUrl = "https://sua-api.com",
+-- 1. Create the client
+local ul = UniverseLogs.new("your-api-key-here", {
+    baseUrl = "https://your-api.com",
     autoReportErrors = true,
 })
 
--- 2. Inicializar (Obrigatório)
+-- 2. Initialize (required)
 local ok, err = ul:init()
 if not ok then
-    warn("[UniverseLogs] Falha ao inicializar:", err)
+    warn("[UniverseLogs] Failed to initialize:", err)
     return
 end
 
--- 3. Enviar um log
-ul:info("Servidor do jogo online e pronto!", {
+-- 3. Send a log
+ul:info("Game server online and ready!", {
     topic = "boot",
     metadata = { 
         placeId = game.PlaceId, 
@@ -65,43 +65,43 @@ ul:info("Servidor do jogo online e pronto!", {
 
 ---
 
-## Inicialização (Constructor)
+## Initialization (Constructor)
 
 ```lua
 UniverseLogs.new(apiKey: string, options?: Config): UniverseLogsInstance
 ```
 
-Cria uma nova instância do cliente UniverseLogs.
+Creates a new UniverseLogs client instance.
 
-| Parâmetro | Tipo | Descrição |
+| Parameter | Type | Description |
 |---|---|---|
-| `apiKey` | `string` | **Obrigatório.** A chave de API gerada para o seu Universo. |
-| `options` | `Config?` | Opcional. Uma tabela com as configurações detalhadas abaixo. |
+| `apiKey` | `string` | **Required.** The API key for your Universe. |
+| `options` | `Config?` | Optional. Table of options (see below). |
 
-### Referência de Configuração
+### Configuration Reference
 
-Todas as opções são opcionais e possuem valores padrão otimizados.
+All options are optional and have optimized defaults.
 
-| Opção | Tipo | Padrão | Descrição |
+| Option | Type | Default | Description |
 |---|---|---|---|
-| `baseUrl` | `string` | `"https://api.universelogs.com"` | URL base da sua API do UniverseLogs. |
-| `localBufferCapacity` | `number` | `1000` | Limite máximo de logs armazenados na memória antes de forçar o envio ao servidor. |
-| `autoFlush` | `boolean` | `true` | Se `true`, acumula logs em lotes (batching). Se `false`, envia requisições HTTP a cada chamada. |
-| `flushInterval` | `number` | `5000` | Intervalo em milissegundos (ms) para esvaziar o buffer automaticamente. |
-| `throttleWindow` | `number` | `5` | Tempo de recarga (segundos) para evitar spam de um mesmo log (nível + mensagem). |
-| `maxRetries` | `number` | `3` | Limite de tentativas ao falhar requisições HTTP (usa backoff exponencial). |
-| `useDataStoreFallback` | `boolean` | `true` | Se a API cair, salva os logs no DataStore do Roblox para enviar depois. |
-| `fallbackInterval` | `number` | `300` | Segundos entre as tentativas de reenviar a fila salva no DataStore. |
-| `fallbackTTL` | `number` | `3600` | Segundos até um log antigo preso no DataStore ser considerado morto e deletado. |
-| `fallbackMaxQueue` | `number` | `1000` | Limite de logs acumulados no DataStore. |
-| `autoReportErrors` | `boolean` | `false` | Se `true`, captura automaticamente qualquer erro de script (`ScriptContext.Error`) e envia como nível `error`. |
-| `errorFilter` | `function?` | `nil` | Função `(message, stackTrace, script) -> boolean` para filtrar quais erros reportar. |
-| `maxBulkSize` | `number` | `500` | Limite de logs agrupados em uma única requisição POST. |
-| `maxThrottleEntries` | `number` | `5000` | Limite do cache de chaves para o filtro anti-spam. |
+| `baseUrl` | `string` | `"https://api.universelogs.com"` | Base URL of your UniverseLogs API. |
+| `localBufferCapacity` | `number` | `1000` | Max logs held in memory before forcing send to the server. |
+| `autoFlush` | `boolean` | `true` | If `true`, batches logs. If `false`, sends HTTP on every call. |
+| `flushInterval` | `number` | `5000` | Interval in ms to flush the buffer automatically. |
+| `throttleWindow` | `number` | `5` | Cooldown (seconds) for the same log (level + message) to avoid spam. |
+| `maxRetries` | `number` | `3` | Max retries on HTTP failure (exponential backoff). |
+| `useDataStoreFallback` | `boolean` | `true` | If the API is down, stores logs in Roblox DataStore to send later. |
+| `fallbackInterval` | `number` | `300` | Seconds between retries to send the DataStore queue. |
+| `fallbackTTL` | `number` | `3600` | Seconds after which a stuck log in DataStore is considered dead and removed. |
+| `fallbackMaxQueue` | `number` | `1000` | Max logs stored in DataStore. |
+| `autoReportErrors` | `boolean` | `false` | If `true`, captures script errors (`ScriptContext.Error`) and sends as `error`. |
+| `errorFilter` | `function?` | `nil` | `(message, stackTrace, script) -> boolean` to filter which errors to report. |
+| `maxBulkSize` | `number` | `500` | Max logs in a single POST request. |
+| `maxThrottleEntries` | `number` | `5000` | Max keys in the anti-spam cache. |
 
 ---
 
-## Métodos da API
+## API Methods
 
 ### Core
 
@@ -109,68 +109,68 @@ Todas as opções são opcionais e possuem valores padrão otimizados.
 ```lua
 ul:init(): (boolean, string?)
 ```
-Inicializa os serviços em background do cliente. **Deve ser chamado obrigatoriamente antes de logar.**
-* Executa o *health check* da API.
-* Inicia o loop de recuperação do DataStore (se ativado).
-* Inicia a limpeza do cache anti-spam.
-* Prepara o `game:BindToClose` para garantir o envio dos logs quando o servidor do Roblox fechar.
+Initializes background services. **Must be called before logging.**
+* Runs API health check.
+* Starts DataStore recovery loop (if enabled).
+* Starts anti-spam cache cleanup.
+* Sets up `game:BindToClose` to flush logs when the Roblox server shuts down.
 
-Retorna `true, nil` em caso de sucesso, ou `false, "Mensagem de erro"`.
+Returns `true, nil` on success, or `false, "error message"`.
 
 #### `ul:destroy()`
 ```lua
 ul:destroy()
 ```
-Encerra os loops em background e envia (faz flush) de forma síncrona qualquer log que ainda esteja preso na memória.
+Stops background loops and synchronously flushes any remaining logs in memory.
 
 #### `ul:log()`
 ```lua
 ul:log(level: LogLevel, message: string, options?: LogOptions)
 ```
-O método principal. Valida, sanitiza, aplica o anti-spam e enfileira o log.
+Main method. Validates, sanitizes, applies anti-spam, and enqueues the log.
 
-| Parâmetro | Tipo | Descrição |
+| Parameter | Type | Description |
 |---|---|---|
-| `level` | `string` | Severidade: `'trace' \| 'debug' \| 'info' \| 'warn' \| 'error' \| 'fatal'` |
-| `message` | `string` | A mensagem do log. Máximo **2048 caracteres**. |
-| `options.topic` | `string?` | Tag para categorizar o log (ex: "economia", "anti-cheat"). Máximo **100 caracteres**. |
-| `options.metadata` | `any?` | Tabela ou valor solto contendo dados adicionais úteis. [Sanitizado automaticamente](#sanitização-de-metadados). |
-| `options.throttleKey` | `string?` | Chave customizada para o anti-spam. O padrão é `"{level}:{message}"`. |
+| `level` | `string` | Severity: `'trace' \| 'debug' \| 'info' \| 'warn' \| 'error' \| 'fatal'` |
+| `message` | `string` | Log message. Max **2048 characters**. |
+| `options.topic` | `string?` | Tag (e.g. "economy", "anticheat"). Max **100 characters**. |
+| `options.metadata` | `any?` | Table or value for extra data. [Sanitized automatically](#metadata-sanitization). |
+| `options.throttleKey` | `string?` | Custom key for anti-spam. Default is `"{level}:{message}"`. |
 
-### Atalhos de Nível (Shorthands)
+### Level Shorthands
 
-Métodos práticos que chamam o `ul:log()` com o nível predefinido. Todos aceitam `(message: string, options?: LogOptions)`.
+Convenience methods that call `ul:log()` with a fixed level. All accept `(message: string, options?: LogOptions)`.
 
 ```lua
--- Fluxos super detalhados e rastreio de código
-ul:trace("Loop do minigame iniciado")
+-- Very detailed flows and code tracing
+ul:trace("Minigame loop started")
 
--- Informações de desenvolvimento
-ul:debug("Gerando mapa com seed", { metadata = { seed = 12345 } })
+-- Development info
+ul:debug("Generating map with seed", { metadata = { seed = 12345 } })
 
--- Eventos operacionais normais
-ul:info("Jogador comprou um item na loja", { topic = "economia" })
+-- Normal operational events
+ul:info("Player bought item in shop", { topic = "economy" })
 
--- Avisos que não quebram o jogo, mas precisam de atenção
-ul:warn("Uso alto de memória detectado", { topic = "performance" })
+-- Warnings that don't break the game but need attention
+ul:warn("High memory usage detected", { topic = "performance" })
 
--- Erros capturados em pcalls ou falhas sistêmicas
-ul:error("Falha ao salvar inventário do jogador", { topic = "datastore" })
+-- Errors from pcalls or system failures
+ul:error("Failed to save player inventory", { topic = "datastore" })
 
--- Quebra crítica do jogo
-ul:fatal("Banco de dados principal offline. Derrubando jogadores.", { topic = "core" })
+-- Critical game failure
+ul:fatal("Main database offline. Kicking players.", { topic = "core" })
 ```
 
-### Leitura e Gerenciamento
+### Read and Management
 
 #### `ul:getLogs()`
 ```lua
 ul:getLogs(filters?: QueryFilters): (boolean, { logs: LogEntry[], nextCursor: Cursor? }?)
 ```
-Busca logs diretamente do seu servidor com filtros e paginação nativa por cursor.
+Fetches logs from your server with filters and cursor-based pagination.
 
 ```lua
--- Exemplo: Pegar os últimos 50 avisos do Anti-Cheat
+-- Example: Last 50 anticheat warnings
 local ok, result = ul:getLogs({ level = "warn", topic = "anticheat", limit = 50 })
 
 if ok and result then
@@ -180,100 +180,98 @@ if ok and result then
 end
 ```
 
-**Filtros disponíveis:**
+**Available filters:**
 * `level` (string)
 * `topic` (string)
-* `limit` (number, padrão 20, máximo 100)
-* `from` / `to` (string em formato ISO 8601)
-* `cursor_ts` / `cursor_id` (para paginação)
+* `limit` (number, default 20, max 100)
+* `from` / `to` (ISO 8601 strings)
+* `cursor_ts` / `cursor_id` (for pagination)
 
 #### `ul:getLogsCount()`
 ```lua
 ul:getLogsCount(filters?: { from: string?, to: string? }): (boolean, LogsCount?)
 ```
-Puxa o número total de logs e a quantidade exata por cada nível.
+Returns total log count and count per level.
 
 #### `ul:getLogById()`
 ```lua
 ul:getLogById(id: string): (boolean, LogEntry?)
 ```
-Busca um registro específico usando o seu ID único.
+Fetches a single log by ID.
 
 #### `ul:deleteLogs()`
 ```lua
 ul:deleteLogs(params: { olderThan: string, level: string?, topic: string? }): (boolean, { deleted: number }?)
 ```
-Apaga permanentemente logs mais antigos que a data (`olderThan` em ISO 8601) fornecida. Opcionalmente filtrado por `level` ou `topic`.
+Permanently deletes logs older than the given date (`olderThan` in ISO 8601). Optionally filter by `level` or `topic`.
 
 ---
 
-## Sistemas Internos
+## Internal Systems
 
-### Como o Buffer Funciona
+### How the Buffer Works
 
-O cliente NUNCA faz uma requisição HTTP solta a menos que você desative o `autoFlush`. Os logs são retidos na memória (Buffer) e enviados em um arrastão (Bulk):
+The client does not send a single HTTP request per log unless you disable `autoFlush`. Logs stay in memory (buffer) and are sent in bulk:
 
-`ul:log() → [Buffer na Memória] → (gatilho de disparo) → POST /api/logs/bulk → API do UniverseLogs`
+`ul:log() → [In-Memory Buffer] → (flush trigger) → POST /api/logs/bulk → UniverseLogs API`
 
-**A remessa em lote (flush) ocorre nestes cenários:**
-1. O timer do `flushInterval` atinge 0 (A cada 5 segundos por padrão).
-2. O limite de `localBufferCapacity` é atingido (Força envio imediato para evitar estourar a memória).
-3. O servidor desliga (`game:BindToClose`). O código ganha 5 segundos para limpar a fila.
-4. Você chama o `ul:destroy()`.
+**Flush happens when:**
+1. The `flushInterval` timer hits 0 (every 5 seconds by default).
+2. `localBufferCapacity` is reached (forces send to avoid memory growth).
+3. The server shuts down (`game:BindToClose`). Code has about 5 seconds to drain the queue.
+4. You call `ul:destroy()`.
 
-### Fallback com DataStore
+### DataStore Fallback
 
-Se a sua API estiver fora do ar ou o Roblox falhar as requisições HTTP (`HttpService`), os logs não são perdidos.
+If the API is down or Roblox HTTP fails, logs are not lost.
 
-1. Se a requisição HTTP falhar, a fila vai parar na DataStore `UniverseLogs_Fallback_v1`.
-2. Um sistema em background tenta reenviar essa fila a cada `fallbackInterval` (5 minutos).
-3. Um bloqueio distribuído (Distributed Lock) na DataStore `UniverseLogs_Lock_v1` garante que **apenas um servidor do jogo** tente processar essa fila por vez, impedindo envios duplicados.
-4. Logs parados lá há muito tempo (passou do `fallbackTTL` - 1 hora) são deletados para evitar lixo.
+1. On HTTP failure, the queue is stored in DataStore `UniverseLogs_Fallback_v1`.
+2. A background process retries sending that queue every `fallbackInterval` (5 minutes).
+3. A distributed lock in DataStore `UniverseLogs_Lock_v1` ensures **only one game server** processes the queue at a time, avoiding duplicates.
+4. Logs stuck longer than `fallbackTTL` (1 hour) are removed to avoid buildup.
 
-### Sistema de Throttling (Anti-Spam)
+### Throttling (Anti-Spam)
 
-Sistemas em loop podem gerar mil logs iguais por acidente. O UniverseLogs bloqueia isso nativamente.
-* Por padrão, a exata mesma `mensagem` do mesmo `nível` só é enviada **1 vez a cada 5 segundos** (`throttleWindow`).
-* Os excedentes são **silenciosamente descartados** no cliente, poupando rede e banco de dados.
+Loop-heavy code can accidentally send thousands of identical logs. UniverseLogs throttles by default.
+* The exact same `message` at the same `level` is sent **at most once every 5 seconds** (`throttleWindow`).
+* Extra occurrences are **dropped silently** on the client, saving network and database.
 
-**Customizando o Anti-Spam:**
-Se quiser limitar o envio de mensagens idênticas **por jogador** ao invés de globalmente, passe uma `throttleKey` única:
+**Custom throttle key:** To limit identical messages **per player** instead of globally, pass a unique `throttleKey`:
 
 ```lua
-ul:warn("Comportamento suspeito (SpeedHack)", {
-    throttleKey = "speedhack_" .. player.UserId, -- Limita a 1 por jogador a cada 5s
+ul:warn("Suspicious behavior (SpeedHack)", {
+    throttleKey = "speedhack_" .. player.UserId,
     metadata = { userId = player.UserId }
 })
 ```
 
-### Sanitização de Metadados
+### Metadata Sanitization
 
-Tabelas em Luau podem ser brutais (Instâncias recursivas, metatables infinitas). O UniverseLogs processa e traduz seu `metadata` de forma segura:
+Luau tables can be complex (recursive Instances, deep metatables). UniverseLogs sanitizes `metadata` safely:
 
-| Tipo do Roblox | O que vai para o Banco de Dados |
+| Roblox Type | What is stored |
 |---|---|
 | `Vector3` | `"Vector3(1.00, 2.00, 3.00)"` |
-| `CFrame` | `"CFrame(x, y, z)"` *(Posição)* |
+| `CFrame` | `"CFrame(x, y, z)"` (position) |
 | `Color3` | `"Color3(R=1.00, G=0.00, B=0.00)"` |
-| `Instance (Player)` | `"Player(NomeDoCara, UserId=123)"` |
-| `Instance (Base)` | `"Part("Porta")"` |
-| Tabelas Gigantes | Truncadas após 64 chaves |
-| Referência Circular | `"[Circular Reference]"` |
+| `Instance (Player)` | `"Player(PlayerName, UserId=123)"` |
+| `Instance (Base)` | `"Part("Door")"` |
+| Large tables | Truncated after 64 keys |
+| Circular refs | `"[Circular Reference]"` |
 
-Você não precisa dar `JSONEncode` ou se preocupar com ciclos. Apenas passe a tabela pura no `metadata`.
+You don’t need to `JSONEncode` or worry about cycles. Pass the table in `metadata` as-is.
 
 ---
 
-## Casos de Uso Avançados
+## Advanced Use Cases
 
-### Captura Automática de Erros com Filtro
-Excelente para centralizar painéis de Crash sem lotar de erros irrelevantes.
+### Automatic Error Capture with Filter
+Useful for centralizing crash dashboards without noise from third-party errors.
 
 ```lua
 local ul = UniverseLogs.new("KEY", {
     autoReportErrors = true,
     errorFilter = function(message, stackTrace, script)
-        -- Exemplo: Ignorar erros de bibliotecas de UI de terceiros
         if script and script.Name == "Roact" then
             return false
         end
@@ -282,8 +280,8 @@ local ul = UniverseLogs.new("KEY", {
 })
 ```
 
-### Registrando Entradas e Saídas do Servidor
-O uso da `throttleKey` aqui previne spam se um jogador usar exploit para dar Join/Leave repetidamente muito rápido.
+### Logging Server Join/Leave
+Using `throttleKey` here prevents spam if a player exploit triggers Join/Leave repeatedly.
 
 ```lua
 local Players = game:GetService("Players")
@@ -302,72 +300,61 @@ end)
 
 ---
 
-## Limites do Servidor (Rate Limits)
+## Server Rate Limits
 
-Para proteger a infraestrutura e o PostgreSQL, a API (Backend) possui *Rate Limits* estritos. Se o limite for quebrado, a API retorna `HTTP 429 Too Many Requests`.
+The API enforces strict rate limits. When exceeded, it returns `HTTP 429 Too Many Requests`.
 
-| Operação (Endpoint) | Limite por minuto |
+| Operation (Endpoint) | Limit per minute |
 |---|---|
-| Criação em Lote (`POST /api/logs/bulk`) | 20 chamadas |
-| Criação Solta (`POST /api/logs`) | 100 chamadas |
-| Leitura Lista (`GET /api/logs`) | 120 chamadas |
-| Contagem (`GET /api/logs/count`) | 120 chamadas |
-| Leitura Única (`GET /api/logs/:id`) | 60 chamadas |
-| Deletar (`DELETE /api/logs`) | 30 chamadas |
+| Bulk create (`POST /api/logs/bulk`) | 20 calls |
+| Single create (`POST /api/logs`) | 100 calls |
+| List (`GET /api/logs`) | 120 calls |
+| Count (`GET /api/logs/count`) | 120 calls |
+| Single read (`GET /api/logs/:id`) | 60 calls |
+| Delete (`DELETE /api/logs`) | 30 calls |
 
-**Limitações de Tamanho do Log (Enforced na API e no Cliente):**
-* **Tópico:** Máximo 100 caracteres.
-* **Mensagem:** Máximo 2048 caracteres.
-* **Bulk Size:** O Cliente divide automaticamente lotes de envio maiores que `500` arquivos (Editável no `maxBulkSize`).
-
----
-
-## ⚠️ Aviso de Segurança e Responsabilidade
-
-### USO EXCLUSIVO NO SERVIDOR (ServerScriptService/ServerStorage)
-
-**NUNCA** coloque este módulo em locais acessíveis ao cliente (`ReplicatedStorage`, `ReplicatedFirst`, `StarterPlayer`, etc.). O módulo contém sua **API Key** em texto puro e possui acesso direto aos endpoints de escrita, leitura e exclusão de logs.
-
-### Responsabilidades do Desenvolvedor
-
-Ao utilizar este módulo, você reconhece e concorda que:
-
-1. **Proteção de Credenciais**: Você é responsável por manter suas chaves (`API Key` e `MASTER_KEY`) em sigilo absoluto. Não as exponha em scripts do cliente, não as commite em repositórios públicos do GitHub, e não as compartilhe com terceiros não autorizados.
-
-2. **Isolamento do Cliente**: O módulo deve ser utilizado **exclusivamente em ServerScripts**. Se um exploit conseguir acesso às suas credenciais através de má configuração (ex: ModuleScript em `ReplicatedStorage`), um atacante pode:
-   - Inundar seu banco de dados com logs falsos/spam, estourando custos de armazenamento.
-   - Deletar todo o histórico de logs do seu universo através do endpoint `deleteLogs()`.
-   - Consultar logs sensíveis contendo informações privadas de jogadores ou do sistema.
-
-3. **Conformidade com Políticas**: Você é responsável por garantir que os dados coletados através deste sistema estejam em conformidade com as políticas da Roblox, LGPD (Brasil), GDPR (Europa), COPPA (EUA) e demais regulamentações aplicáveis. Não registre informações pessoais identificáveis (PII) sem o devido consentimento e proteção.
-
-4. **Monitoramento de Custos**: Logs em alto volume podem gerar custos significativos de armazenamento, processamento e tráfego de rede. Configure políticas de retenção adequadas (`deleteLogs`) e monitore o uso regularmente.
-
-5. **Testes em Ambiente Controlado**: Sempre teste as integrações em ambientes de desenvolvimento/homologação antes de publicar em produção. Rate limits, falhas de rede e comportamentos inesperados devem ser tratados adequadamente.
-
-### Isenção de Responsabilidade
-
-O autor deste software (`iamthebestts`) e quaisquer contribuidores **NÃO SE RESPONSABILIZAM** por:
-- Perda, vazamento ou corrupção de dados.
-- Danos financeiros decorrentes de uso indevido, má configuração ou ataques.
-- Violação de políticas da Roblox, leis de proteção de dados ou regulamentações locais.
-- Indisponibilidade, bugs ou comportamentos inesperados do software.
-
-**Este software é fornecido "COMO ESTÁ" (AS IS), sem garantias de qualquer tipo, expressas ou implícitas, incluindo, mas não se limitando a, garantias de comercialização, adequação a um propósito específico e não violação.**
-
-Ao utilizar este módulo, você assume total responsabilidade pelos riscos associados.
+**Log size limits (enforced by API and client):**
+* **Topic:** Max 100 characters.
+* **Message:** Max 2048 characters.
+* **Bulk size:** The client splits batches larger than `500` (configurable via `maxBulkSize`).
 
 ---
 
-## 📜 Licença MIT
+## ⚠️ Security and Responsibility
+
+### SERVER-ONLY USE (ServerScriptService/ServerStorage)
+
+**Never** place this module where the client can access it (`ReplicatedStorage`, `ReplicatedFirst`, `StarterPlayer`, etc.). The module contains your **API Key** in plain text and can write, read, and delete logs.
+
+### Developer Responsibilities
+
+By using this module you agree that:
+
+1. **Credential protection:** You are responsible for keeping your `API Key` and `MASTER_KEY` secret. Do not expose them in client scripts, commit them to public repos, or share them with unauthorized parties.
+
+2. **Client isolation:** The module must be used **only in server scripts**. If an exploiter gets your credentials (e.g. via ModuleScript in `ReplicatedStorage`), they can flood your database, delete all logs via `deleteLogs()`, or read sensitive log data.
+
+3. **Policy compliance:** You must ensure data collected through this system complies with Roblox policies, LGPD (Brazil), GDPR (EU), COPPA (US), and other applicable laws. Do not log personally identifiable information (PII) without consent and proper safeguards.
+
+4. **Cost monitoring:** High log volume can increase storage, compute, and network costs. Use retention policies (`deleteLogs`) and monitor usage.
+
+5. **Testing:** Test integrations in development/staging before production. Handle rate limits, network failures, and unexpected behavior appropriately.
+
+### Disclaimer
+
+The author (`iamthebestts`) and contributors are **not liable** for data loss, financial harm, policy violations, downtime, bugs, or misuse. This software is provided **"AS IS"** without warranties. You assume all risks.
+
+---
+
+## 📜 MIT License
 
 Copyright © 2026 iamthebestts
 
-A licença completa pode ser encontrada no arquivo `LICENSE` do repositório.
+See the `LICENSE` file in the repository for the full text.
 
 ---
 
 <div align="center">
-  <p>Desenvolvido com ❤️ por <a href="https://github.com/iamthebestts">iamthebestts</a></p>
-  <p><strong>Use com responsabilidade. Proteja suas credenciais. Mantenha seguro.</strong></p>
+  <p>Built with ❤️ by <a href="https://github.com/iamthebestts">iamthebestts</a></p>
+  <p><strong>Use responsibly. Protect your credentials. Stay secure.</strong></p>
 </div>

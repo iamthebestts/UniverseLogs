@@ -1,6 +1,6 @@
 # WebSocket Realtime API
 
-O serviço de Realtime permite a conexão bidirecional entre clientes e o servidor de logs, possibilitando o monitoramento de eventos em tempo real e a execução de comandos rápidos.
+The Realtime service provides a bidirectional connection between clients and the log server for real-time event monitoring and quick commands.
 
 ## Endpoint
 
@@ -8,24 +8,26 @@ O serviço de Realtime permite a conexão bidirecional entre clientes e o servid
 
 ---
 
-## Autenticação
+## Authentication
 
-A autenticação é realizada durante o handshake inicial do WebSocket via header HTTP.
+Authentication is done during the initial WebSocket handshake via an HTTP header.
 
-| Header | Descrição |
-|--------|-----------|
-| `x-api-key` | Chave de acesso do universo (tenant) |
+| Header     | Description |
+|------------|-------------|
+| `x-api-key`| Universe (tenant) access key |
 
-Se a chave for inválida ou estiver ausente, a conexão será fechada com um dos seguintes códigos:
-- `4001`: Chave de API ausente.
-- `4002`: Chave de API inválida ou revogada.
+If the key is invalid or missing, the connection is closed with one of:
+
+- `4001`: API key missing.
+- `4002`: API key invalid or revoked.
 
 ---
 
-## Ciclo de Vida da Conexão
+## Connection Lifecycle
 
-1. **Handshake**: O cliente envia o header `x-api-key`.
-2. **Conectado**: O servidor envia uma mensagem de boas-vindas:
+1. **Handshake:** Client sends the `x-api-key` header.
+2. **Connected:** Server sends a welcome message:
+
    ```json
    {
      "type": "CONNECTED",
@@ -33,40 +35,46 @@ Se a chave for inválida ou estiver ausente, a conexão será fechada com um dos
      "timestamp": "2026-02-15T..."
    }
    ```
-3. **Atividade**: O cliente pode enviar comandos ou apenas ouvir logs.
-4. **Fechamento**: Quando o socket fecha, o servidor remove o cliente do gerenciador de broadcast automaticamente.
+
+3. **Activity:** Client can send commands or only listen for logs.
+4. **Close:** When the socket closes, the server removes the client from the broadcast manager automatically.
 
 ---
 
-## Mensagens do Cliente (Comandos)
+## Client Messages (Commands)
 
-O servidor processa mensagens no formato JSON: `{ "type": "COMANDO", "payload": {} }`.
+The server expects JSON: `{ "type": "COMMAND", "payload": {} }`.
 
 ### 1. PING
-Mantém a conexão ativa e testa a latência.
-- **Payload**: Nenhum.
-- **Resposta**: `{ "type": "PONG", "timestamp": "..." }`
+
+Keeps the connection alive and tests latency.
+
+- **Payload:** None.
+- **Response:** `{ "type": "PONG", "timestamp": "..." }`
 
 ### 2. QUERY_LOGS
-Lista logs com os mesmos filtros do `GET /api/logs` (level, topic, from, to, cursor, limit).
-- **Payload**: `{ "level"?, "topic"?, "from"?, "to"?, "cursor_ts"?, "cursor_id"?, "limit"? }` (limit máx. 100).
-- **Resposta**: `{ "type": "LOGS_QUERY_RESULT", "logs": [...], "nextCursor"?: { "cursor_ts", "cursor_id" } }`
 
-> **Nota de Versão (v1.1.0)**: Os campos de cursor foram renomeados de `timestamp`/`id` para `cursor_ts`/`cursor_id` para maior clareza.
-> 
-> **Guia de Migração**:
-> - **Antigo**: `{ "timestamp": "...", "id": "..." }`
-> - **Novo**: `{ "cursor_ts": "...", "cursor_id": "..." }`
-> 
-> Para compatibilidade, o servidor aceita ambos os formatos no payload de requisição, mas retornará apenas o novo formato em `nextCursor`.
+Lists logs with the same filters as `GET /api/logs` (level, topic, from, to, cursor, limit).
+
+- **Payload:** `{ "level"?, "topic"?, "from"?, "to"?, "cursor_ts"?, "cursor_id"?, "limit"? }` (limit max 100).
+- **Response:** `{ "type": "LOGS_QUERY_RESULT", "logs": [...], "nextCursor"?: { "cursor_ts", "cursor_id" } }`
+
+> **Version note (v1.1.0):** Cursor fields were renamed from `timestamp`/`id` to `cursor_ts`/`cursor_id` for clarity.
+>
+> **Migration:** Old: `{ "timestamp": "...", "id": "..." }` → New: `{ "cursor_ts": "...", "cursor_id": "..." }`
+>
+> For compatibility, the server accepts both formats in the request payload but returns only the new format in `nextCursor`.
 
 ### 3. QUERY_LOGS_COUNT
-Contagem total e por level (equivalente a `GET /api/logs/count`).
-- **Payload**: `{ "from"?, "to"? }` (datas ISO).
-- **Resposta**: `{ "type": "LOGS_COUNT_RESULT", "total": number, "byLevel": { "trace": number, "debug": number, "info": number, "warn": number, "error": number, "fatal": number } }`
-- **Nota**: O campo `byLevel` é um mapa de nomes de níveis de log para a contagem inteira. Todas as chaves para os níveis suportados (`trace`, `debug`, `info`, `warn`, `error`, `fatal`) estão sempre presentes, com valor 0 se não houver logs para aquele nível.
 
-**Exemplo de Resposta**:
+Total and per-level count (same as `GET /api/logs/count`).
+
+- **Payload:** `{ "from"?, "to"? }` (ISO dates).
+- **Response:** `{ "type": "LOGS_COUNT_RESULT", "total": number, "byLevel": { "trace": number, "debug": number, "info": number, "warn": number, "error": number, "fatal": number } }`
+- **Note:** `byLevel` is a map of log level names to counts. All supported levels (`trace`, `debug`, `info`, `warn`, `error`, `fatal`) are always present, with 0 when there are no logs for that level.
+
+**Example response:**
+
 ```json
 {
   "type": "LOGS_COUNT_RESULT",
@@ -83,29 +91,37 @@ Contagem total e por level (equivalente a `GET /api/logs/count`).
 ```
 
 ### 4. DELETE_LOGS
-Remove logs por `olderThan` e filtros opcionais (equivalente a `DELETE /api/logs`).
-- **Payload**: `{ "olderThan": "ISO date", "confirm": true, "level"?, "topic"? }`
-- **Nota**: O campo `confirm` é obrigatório para evitar deleções acidentais. Se ausente ou `false`, o servidor retorna `{ "type": "ERROR", "message": "Campo 'confirm' obrigatório para confirmar deleção" }`. O comando é sujeito a rate limiting e exige permissões elevadas. Deleções são auditadas.
-- **Resposta**: `{ "type": "LOGS_DELETED", "deleted": number }`
+
+Removes logs by `olderThan` and optional filters (same as `DELETE /api/logs`).
+
+- **Payload:** `{ "olderThan": "ISO date", "confirm": true, "level"?, "topic"? }`
+- **Note:** `confirm` is required to avoid accidental deletion. If missing or `false`, the server returns `{ "type": "ERROR", "message": "'confirm' field required to confirm deletion" }`. The command is rate-limited and requires elevated permissions. Deletions are audited.
+- **Response:** `{ "type": "LOGS_DELETED", "deleted": number }`
 
 ### 5. SEND_LOGS_BULK
-Cria vários logs em lote (equivalente a `POST /api/logs/bulk`).
-- **Payload**: `{ "logs": [{ "level", "message", "metadata"?, "topic"? }, ...] }` (máx. 100 itens).
-- **Nota**: A operação é atômica (all-or-nothing). Se algum log falhar na validação (campos obrigatórios: `level`, `message`), nenhum será inserido.
-- **Resposta (Sucesso)**: `{ "type": "LOGS_BULK_CREATED", "count": number }`
-- **Resposta (Erro)**: `{ "type": "ERROR", "message": "Validation failed", "errors": [{ "index": number, "reason": string }, ...] }`
+
+Creates multiple logs in bulk (same as `POST /api/logs/bulk`).
+
+- **Payload:** `{ "logs": [{ "level", "message", "metadata"?, "topic"? }, ...] }` (max 100 items).
+- **Note:** Operation is atomic (all-or-nothing). If any log fails validation (required: `level`, `message`), none are inserted.
+- **Success:** `{ "type": "LOGS_BULK_CREATED", "count": number }`
+- **Error:** `{ "type": "ERROR", "message": "Validation failed", "errors": [{ "index": number, "reason": string }, ...] }`
 
 ### 6. SEND_LOG
-Cria um novo log diretamente via WebSocket.
-- **Payload**: Mesmo objeto do `POST /api/logs`.
-- **Resposta**: `{ "type": "LOG_CREATED", "id": "uuid" }`
+
+Creates a new log directly over WebSocket.
+
+- **Payload:** Same object as `POST /api/logs`.
+- **Response:** `{ "type": "LOG_CREATED", "id": "uuid" }`
 
 ---
 
-## Mensagens do Servidor (Eventos)
+## Server Messages (Events)
 
-### 1. Novo Log (Broadcast)
-Enviado para todos os clientes conectados a um `universeId` quando um novo log é gerado (seja via HTTP ou WS).
+### 1. New Log (Broadcast)
+
+Sent to all clients connected to a `universeId` when a new log is created (via HTTP or WS).
+
 ```json
 {
   "id": "uuid",
@@ -118,35 +134,36 @@ Enviado para todos os clientes conectados a um `universeId` quando um novo log �
 }
 ```
 
-### 2. Erro
-Enviado quando um comando falha ou o formato é inválido.
+### 2. Error
+
+Sent when a command fails or the format is invalid.
+
 ```json
 {
   "type": "ERROR",
-  "message": "Descrição do erro"
+  "message": "Error description"
 }
 ```
 
 ---
 
-## Exemplo de Implementação (JavaScript)
+## Example Implementation (JavaScript)
 
 ```javascript
 const socket = new WebSocket('ws://localhost:3000/realtime', {
-  headers: { 'x-api-key': 'sua-chave-aqui' }
+  headers: { 'x-api-key': 'your-key-here' }
 });
 
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
   
   if (data.type === 'CONNECTED') {
-    console.log('Logado no universo:', data.universeId);
+    console.log('Connected to universe:', data.universeId);
   } else if (data.level) {
-    console.log('Log em tempo real:', data.message);
+    console.log('Real-time log:', data.message);
   }
 };
 
-// Exemplo de comando
 function getHistory() {
   socket.send(JSON.stringify({
     type: 'QUERY_LOGS',

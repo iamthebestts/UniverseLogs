@@ -1,76 +1,76 @@
-# Guia de Operações - Logs API
+# Operations Guide — Logs API
 
-Este documento descreve como operar, monitorar e manter o serviço de Logs API em produção.
+This document describes how to operate, monitor, and maintain the Logs API service in production.
 
-## 1. Monitoramento e Métricas (Observabilidade)
+## 1. Monitoring and Metrics (Observability)
 
-A aplicação utiliza [Bun](https://bun.sh) e [Elysia](https://elysiajs.com). Para monitoramento em produção, observe:
+The application uses [Bun](https://bun.sh) and [Elysia](https://elysiajs.com). For production monitoring, watch:
 
-### Principais Endpoints de Saúde:
-- `GET /ping`: Resposta imediata `{"pong": true}` para Load Balancers.
-- `GET /health`: Verifica conectividade com o Banco de Dados.
+### Main Health Endpoints
+- `GET /ping`: Immediate `{"pong": true}` response for load balancers.
+- `GET /health`: Checks database connectivity.
 
-### Métricas Recomendadas (RED Method):
-Como o sistema ainda não integra Prometheus/OpenTelemetry nativamente, utilize o log do servidor para monitorar:
-- **Requests:** Volume de logs enviados por segundo.
-- **Errors:** Frequência de erros 5xx ou Timeouts de banco.
-- **Duration:** Latência média das rotas `/logs` e `/universes`.
+### Recommended Metrics (RED Method)
+The system does not yet integrate Prometheus/OpenTelemetry natively; use server logs to monitor:
+- **Requests:** Volume of logs sent per second.
+- **Errors:** Frequency of 5xx errors or database timeouts.
+- **Duration:** Average latency of `/logs` and `/universes` routes.
 
-### Métricas e Benchmarks
+### Metrics and Benchmarks
 
-Para um teste de carga local (requer servidor rodando e uma API key válida):
+For a local load test (requires a running server and a valid API key):
 
 ```bash
 bun run benchmark
 ```
 
-O script envia requisições consecutivas para `POST /api/logs` e reporta latência (média, p95) e throughput. Valores de referência em ambiente típico (Bun, Postgres local):
+The script sends consecutive requests to `POST /api/logs` and reports latency (average, p95) and throughput. Reference values in a typical environment (Bun, local Postgres):
 
-| Métrica | Alvo |
-|--------|------|
-| Latência p95 (POST /api/logs) | &lt; 10 ms |
-| Throughput (writes/s, single client) | &gt; 500/s (buffer reduz round-trips ao DB) |
+| Metric | Target |
+|--------|--------|
+| p95 latency (POST /api/logs) | &lt; 10 ms |
+| Throughput (writes/s, single client) | &gt; 500/s (buffer reduces DB round-trips) |
 
-O WebSocket (`/realtime`) é otimizado para baixa latência de broadcast; para benchmarks de muitos clientes simultâneos, use ferramentas como `k6` ou `artillery` apontando para o endpoint HTTP e WS.
+The WebSocket (`/realtime`) is tuned for low broadcast latency; for benchmarks with many concurrent clients, use tools like `k6` or `artillery` against the HTTP and WS endpoints.
 
-## 2. Gerenciamento de Banco de Dados (Postgres)
+## 2. Database Management (Postgres)
 
-O sistema usa **Drizzle ORM**.
+The system uses **Drizzle ORM**.
 
 ### Migrations
-As migrações são executadas automaticamente no startup do container se `RUN_MIGRATE=true`.
-- **Verificar status:** Verifique os logs do container no início da execução.
-- **Manual Rollback:** Requer acesso direto ao banco ou execução via CLI do Drizzle localmente.
+Migrations run automatically on container startup if `RUN_MIGRATE=true`.
+- **Check status:** Inspect container logs at startup.
+- **Manual rollback:** Requires direct database access or running Drizzle CLI locally.
 
-### Conexões
-Configure as variáveis `DB_MAX_CONNECTIONS` e `DB_IDLE_TIMEOUT` de acordo com a capacidade do seu cluster RDS/Postgres. O padrão é 10 conexões por instância.
+### Connections
+Set `DB_MAX_CONNECTIONS` and `DB_IDLE_TIMEOUT` according to your RDS/Postgres cluster capacity. Default is 10 connections per instance.
 
-## 3. Escalabilidade (Scaling)
+## 3. Scaling
 
 ### Horizontal Scaling
-A aplicação é *stateless* e pode ser escalada horizontalmente.
-- **Atenção:** O Rate Limiting atual é em memória. Escalar múltiplas instâncias sem um Redis centralizado aumentará o limite real de requisições por IP proporcionalmente ao número de réplicas.
+The application is stateless and can be scaled horizontally.
+- **Note:** Current rate limiting is in-memory. Scaling to multiple instances without a shared Redis will increase the effective request limit per IP proportionally to the number of replicas.
 
-### Recursos do Container
-- **CPU/Memória:** Inicie com 512MB RAM e 0.5 vCPU. Bun é extremamente eficiente.
+### Container Resources
+- **CPU/Memory:** Start with 512MB RAM and 0.5 vCPU. Bun is very efficient.
 
-## 4. Runbook: Problemas Comuns
+## 4. Runbook: Common Issues
 
 ### 1. Database Connection Timeout
-- **Sintoma:** `/health` retorna status `unavailable`.
-- **Causa:** Banco de dados fora do ar ou pool de conexões exaurido.
-- **Ação:** Aumentar `DB_MAX_CONNECTIONS` ou verificar carga no Postgres.
+- **Symptom:** `/health` returns status `unavailable`.
+- **Cause:** Database down or connection pool exhausted.
+- **Action:** Increase `DB_MAX_CONNECTIONS` or check Postgres load.
 
-### 2. Memória Crescente
-- **Sintoma:** Restart constante do container.
-- **Causa:** O buffer de logs (`LogBuffer`) pode estar retendo muitos itens se o banco estiver lento.
-- **Ação:** Verifique a performance das escritas na tabela de `logs`.
+### 2. Growing Memory
+- **Symptom:** Container restarts repeatedly.
+- **Cause:** The log buffer (`LogBuffer`) may be holding too many items if the database is slow.
+- **Action:** Check write performance to the `logs` table.
 
-### 3. Falha na Migração
-- **Sintoma:** O container trava no boot.
-- **Ação:** Desabilite `RUN_MIGRATE=false`, suba o serviço e verifique manualmente as tabelas no banco.
+### 3. Migration Failure
+- **Symptom:** Container hangs on boot.
+- **Action:** Set `RUN_MIGRATE=false`, start the service, and inspect tables in the database manually.
 
-## 5. Segurança
+## 5. Security
 
-- **Master Key:** A `MASTER_KEY` deve ser rotacionada periodicamente e nunca exposta em logs.
-- **API Keys:** Geradas via `/api-keys` para consumidores do serviço. Utilize o serviço interno para revogar chaves suspeitas.
+- **Master Key:** Rotate `MASTER_KEY` periodically and never log it.
+- **API Keys:** Created via `/api-keys` for service consumers. Use the internal service to revoke suspicious keys.

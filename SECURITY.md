@@ -1,130 +1,136 @@
-# Política de Segurança e Responsabilidade
+# Security and Responsibility Policy
 
-## 🔒 Visão Geral
+## 🔒 Overview
 
-O **UniverseLogs** é uma ferramenta poderosa de observabilidade que, se mal configurada, pode expor dados sensíveis ou permitir ataques ao seu sistema de logs. Este documento estabelece diretrizes de segurança obrigatórias e esclarece as responsabilidades do usuário final.
+**UniverseLogs** is a powerful observability tool that, if misconfigured, can expose sensitive data or allow attacks on your log system. This document defines mandatory security guidelines and clarifies end-user responsibilities.
+
+**Versão em português (pt-BR):** [Política de Segurança](pt-br/SECURITY.md)
 
 ---
 
-## ⚠️ AVISO CRÍTICO: USO EXCLUSIVO EM SERVER-SIDE SCRIPTS
+## ⚠️ CRITICAL: SERVER-SIDE USE ONLY
 
-### ❌ NUNCA faça isso:
+### ❌ NEVER do this
 
 ```lua
--- ❌ ERRADO: Instanciar o módulo em um LocalScript (Client-side)
+-- ❌ WRONG: Instantiating the module in a LocalScript (client-side)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UniverseLogs = require(ReplicatedStorage.UniverseLogs)
 
--- Isso expõe sua API Key diretamente ao cliente!
-local ul = UniverseLogs.new("sua-api-key-secreta", {...})
+-- This exposes your API Key to the client!
+local ul = UniverseLogs.new("your-secret-api-key", {...})
 ```
 
-### ✅ SEMPRE faça isso:
+### ✅ ALWAYS do this
 
 ```lua
--- ✅ CORRETO: Instanciar apenas em Scripts do Servidor (Server-side)
+-- ✅ CORRECT: Instantiate only in server Scripts (server-side)
 local ServerStorage = game:GetService("ServerStorage")
 local UniverseLogs = require(ServerStorage.UniverseLogs)
 
-local ul = UniverseLogs.new("sua-api-key-secreta", {...})
+local ul = UniverseLogs.new("your-secret-api-key", {...})
 ```
 
-**Por quê?** O módulo contém sua **API Key em texto puro** no código que instancia o cliente. Se você chamar `UniverseLogs.new()` de um **LocalScript** (client-side):
+**Why?** The module holds your **API Key in plain text** in the code that creates the client. If you call `UniverseLogs.new()` from a **LocalScript** (client-side):
 
-1. **A API Key fica visível para exploiters** através de decompiladores e ferramentas de injeção de script.
-2. Um atacante pode extrair a chave e usá-la fora do jogo para:
-   - **Inundar seu banco de dados** com milhões de logs falsos, estourando custos de armazenamento e processamento.
-   - **Deletar todo o histórico** através do método `deleteLogs()`.
-   - **Extrair informações confidenciais** de logs contendo dados de jogadores, economia do jogo ou lógica de anti-cheat.
+1. **The API Key becomes visible to exploiters** via decompilers and script injection tools.
+2. An attacker can extract the key and use it outside the game to:
+   - **Flood your database** with millions of fake logs, driving up storage and processing costs.
+   - **Delete all history** via the `deleteLogs()` method.
+   - **Extract confidential data** from logs (player data, economy, anti-cheat logic).
 
-### ⚠️ Esclarecimento Importante
+### ⚠️ Important Clarification
 
-**A localização física do ModuleScript não importa** (`ServerStorage`, `ReplicatedStorage`, etc.). O que importa é **de onde você chama `UniverseLogs.new()` com a API Key**:
+**Where the ModuleScript lives does not matter** (`ServerStorage`, `ReplicatedStorage`, etc.). What matters is **where you call `UniverseLogs.new()` with the API Key**:
 
-- ✅ **Seguro**: Chamar de um `Script` (server-side) em qualquer lugar (`ServerScriptService`, `Workspace`, etc.)
-- ❌ **INSEGURO**: Chamar de um `LocalScript` (client-side) em qualquer lugar (`StarterPlayer`, `StarterGui`, `ReplicatedFirst`, etc.)
+- ✅ **Safe:** Calling from a server `Script` (e.g. `ServerScriptService`, `Workspace`)
+- ❌ **UNSAFE:** Calling from a `LocalScript` (e.g. `StarterPlayer`, `StarterGui`, `ReplicatedFirst`)
 
-**Regra de Ouro:** A API Key **NUNCA** deve existir ou ser processada no cliente. Sempre mantenha a instanciação do módulo no servidor.
-
----
-
-## 🔑 Proteção de Credenciais
-
-### API Keys e Master Keys
-
-As chaves de acesso são as "senhas" do seu sistema de logs. **Nunca:**
-
-- ❌ Faça commit de arquivos `.env` ou chaves hardcoded em repositórios públicos.
-- ❌ Compartilhe suas chaves em Discord, fóruns ou tickets de suporte.
-- ❌ Reutilize chaves entre ambientes de desenvolvimento e produção.
-- ❌ Armazene chaves em plain text em arquivos de configuração versionados.
-- ❌ **Instancie o módulo com a API Key em LocalScripts (client-side).**
-
-### Boas Práticas
-
-- ✅ Use variáveis de ambiente (`.env`) e adicione `.env` ao `.gitignore`.
-- ✅ Rotacione chaves comprometidas imediatamente através do endpoint `/internal/keys/revoke`.
-- ✅ Crie chaves separadas para desenvolvimento, homologação e produção.
-- ✅ Implemente monitoramento de uso anômalo (ex: picos repentinos de requisições).
-- ✅ **Sempre instancie o módulo em Scripts do servidor (server-side).**
+**Golden rule:** The API Key must **never** exist or be processed on the client. Always instantiate the module on the server.
 
 ---
 
-## 🛡️ Segurança dos Dados Coletados
+## 🔑 Credential Protection
 
-### Conformidade Legal
+### API Keys and Master Keys
 
-Você é **legalmente responsável** por garantir que os dados coletados estejam em conformidade com:
+Access keys are the “passwords” of your log system. **Never:**
 
-- **LGPD** (Brasil): Lei Geral de Proteção de Dados Pessoais
-- **GDPR** (União Europeia): General Data Protection Regulation
-- **COPPA** (EUA): Children's Online Privacy Protection Act
-- **Políticas da Roblox**: [Roblox Terms of Use](https://en.help.roblox.com/hc/en-us/articles/115004647846)
+- ❌ Commit `.env` files or hardcoded keys to public repositories.
+- ❌ Share keys on Discord, forums, or support tickets.
+- ❌ Reuse keys between development and production.
+- ❌ Store keys in plain text in versioned config files.
+- ❌ **Instantiate the module with the API Key in LocalScripts (client-side).**
 
-### O Que NÃO Logar
+### Best Practices
 
-❌ **Dados Pessoais Identificáveis (PII) sem consentimento explícito:**
-- Endereços IP completos
-- Nomes reais de usuários
-- E-mails, números de telefone
-- Dados de localização geográfica precisa
-- Informações financeiras (exceto IDs de transação genéricos)
-
-### O Que Logar com Segurança
-
-✅ **Dados anonimizados ou pseudonimizados:**
-- `UserId` do Roblox (identificador de plataforma, não PII direto)
-- Timestamps de eventos
-- Ações de gameplay (ex: "item comprado", "nível concluído")
-- Erros técnicos (stack traces sem informações sensíveis)
+- ✅ Use environment variables (`.env`) and add `.env` to `.gitignore`.
+- ✅ Rotate compromised keys immediately via `/internal/keys/revoke`.
+- ✅ Use separate keys for development, staging, and production.
+- ✅ Monitor for anomalous usage (e.g. sudden request spikes).
+- ✅ **Always instantiate the module in server scripts (server-side).**
 
 ---
 
-## 💰 Gestão de Custos e Recursos
+## 🛡️ Security of Collected Data
 
-### Monitoramento de Volume
+### Legal Compliance
 
-Logs em alto volume podem gerar custos significativos:
+You are **legally responsible** for ensuring collected data complies with:
 
-- **Armazenamento**: PostgreSQL, backups, retenção de longo prazo.
-- **Computação**: Processamento de batches, queries complexas.
-- **Rede**: Tráfego HTTP entre Roblox e seu servidor.
+- **LGPD** (Brazil): Lei Geral de Proteção de Dados Pessoais
+- **GDPR** (EU): General Data Protection Regulation
+- **COPPA** (US): Children's Online Privacy Protection Act
+- **Roblox policies:** [Roblox Terms of Use](https://en.help.roblox.com/hc/en-us/articles/115004647846)
 
-### Recomendações
+### What NOT to Log
 
-1. **Configure políticas de retenção automática:**
+❌ **Personally identifiable information (PII) without explicit consent:**
+
+- Full IP addresses
+- Real names
+- Emails, phone numbers
+- Precise geographic location
+- Financial details (except generic transaction IDs)
+
+### What to Log Safely
+
+✅ **Anonymized or pseudonymized data:**
+
+- Roblox `UserId` (platform identifier, not direct PII)
+- Event timestamps
+- Gameplay actions (e.g. “item purchased”, “level completed”)
+- Technical errors (stack traces without sensitive data)
+
+---
+
+## 💰 Cost and Resource Management
+
+### Volume Monitoring
+
+High log volume can lead to significant cost:
+
+- **Storage:** PostgreSQL, backups, long retention.
+- **Compute:** Batch processing, complex queries.
+- **Network:** HTTP traffic between Roblox and your server.
+
+### Recommendations
+
+1. **Configure automatic retention:**
+
    ```lua
-   -- Deletar logs com mais de 30 dias
+   -- Delete logs older than 30 days
    ul:deleteLogs({
        olderThan = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() - 30*24*60*60)
    })
    ```
 
-2. **Use `topic` para categorizar e filtrar:**
-   - Mantenha logs críticos (`topic = "security"`) por mais tempo.
-   - Descarte logs de debug (`topic = "dev"`) rapidamente.
+2. **Use `topic` to categorize and filter:**
+   - Keep critical logs (`topic = "security"`) longer.
+   - Discard debug logs (`topic = "dev"`) quickly.
 
-3. **Monitore métricas regularmente:**
+3. **Monitor metrics regularly:**
+
    ```lua
    local ok, count = ul:getLogsCount()
    if ok and count.total > 1000000 then
@@ -134,106 +140,111 @@ Logs em alto volume podem gerar custos significativos:
 
 ---
 
-## 🚨 Reportar Vulnerabilidades
+## 🚨 Reporting Vulnerabilities
 
-Se você descobrir uma vulnerabilidade de segurança neste projeto, **NÃO** crie uma Issue pública no GitHub.
+If you find a security vulnerability in this project, **do not** open a public GitHub Issue.
 
-### Processo de Divulgação Responsável
+### Responsible Disclosure
 
-1. Envie um e-mail detalhado para: **githubissues.tremor737@passinbox.com** *(ou crie uma GitHub Security Advisory)*
-2. Inclua:
-   - Descrição da vulnerabilidade
-   - Passos para reproduzir
-   - Impacto potencial
-   - Sugestão de correção (se possível)
-3. Aguarde confirmação de recebimento em até 48h.
-4. Aguarde a publicação do patch antes de divulgar publicamente.
-
----
-
-## 📋 Responsabilidades do Desenvolvedor (Você)
-
-Ao utilizar o UniverseLogs, você reconhece e concorda que é **100% responsável** por:
-
-### 1. Configuração e Implantação
-- Garantir que o módulo é instanciado **exclusivamente em server-side scripts**.
-- Proteger credenciais contra vazamento.
-- Configurar rate limits e throttling adequadamente.
-
-### 2. Conformidade Legal
-- Cumprir leis de proteção de dados aplicáveis (LGPD, GDPR, COPPA).
-- Obter consentimento para coleta de dados quando necessário.
-- Implementar políticas de privacidade transparentes.
-
-### 3. Monitoramento e Manutenção
-- Monitorar custos de armazenamento e tráfego.
-- Implementar políticas de retenção de dados.
-- Investigar e responder a incidentes de segurança.
-
-### 4. Gestão de Riscos
-- Realizar testes de segurança antes do deploy em produção.
-- Implementar backups e planos de recuperação de desastres.
-- Treinar equipe sobre boas práticas de segurança.
+1. Send a detailed email to: **<githubissues.tremor737@passinbox.com>** *(or create a GitHub Security Advisory)*
+2. Include:
+   - Description of the vulnerability
+   - Steps to reproduce
+   - Potential impact
+   - Suggested fix (if any)
+3. Expect acknowledgment within 48 hours.
+4. Wait for the patch to be published before disclosing publicly.
 
 ---
 
-## 🚫 Isenção de Responsabilidade
+## 📋 Developer Responsibilities (You)
 
-### O autor (`iamthebestts`) e contribuidores NÃO SE RESPONSABILIZAM POR:
+By using UniverseLogs, you acknowledge that you are **fully responsible** for:
 
-- ❌ Perda, vazamento, corrupção ou roubo de dados.
-- ❌ Danos financeiros (custos de armazenamento, multas regulatórias, etc.).
-- ❌ Violação de políticas da Roblox ou leis de proteção de dados.
-- ❌ Indisponibilidade, bugs, falhas de segurança ou comportamentos inesperados.
-- ❌ Ataques cibernéticos resultantes de má configuração ou exposição de credenciais.
-- ❌ Uso indevido por terceiros (exploiters, atacantes, concorrentes).
+### 1. Configuration and Deployment
 
-### Cláusula "AS IS" (Como Está)
+- Ensuring the module is instantiated **only in server-side scripts**.
+- Protecting credentials from leakage.
+- Configuring rate limits and throttling appropriately.
 
-Este software é distribuído **"COMO ESTÁ" (AS IS)**, sem garantias de qualquer tipo, expressas ou implícitas, incluindo, mas não se limitando a:
-- Garantias de comercialização
-- Adequação a um propósito específico
-- Não violação de direitos de terceiros
-- Segurança, confiabilidade ou precisão
+### 2. Legal Compliance
 
-**Você assume TODOS os riscos associados ao uso deste software.**
+- Complying with applicable data protection laws (LGPD, GDPR, COPPA).
+- Obtaining consent for data collection when required.
+- Implementing clear privacy policies.
 
----
+### 3. Monitoring and Maintenance
 
-## ✅ Checklist de Segurança Pré-Deploy
+- Monitoring storage and traffic costs.
+- Implementing data retention policies.
+- Investigating and responding to security incidents.
 
-Antes de colocar o UniverseLogs em produção, verifique:
+### 4. Risk Management
 
-- [ ] O módulo é instanciado **exclusivamente em Scripts do servidor** (nunca em LocalScripts).
-- [ ] A `API Key` não está exposta ao cliente em nenhuma circunstância.
-- [ ] A `MASTER_KEY` do backend possui pelo menos 32 caracteres aleatórios.
-- [ ] Rate limits estão configurados no backend (`rateLimitHandler`).
-- [ ] Políticas de retenção de dados estão ativas (ex: deletar logs > 90 dias).
-- [ ] Logs não contêm PII não consentida (nomes reais, e-mails, IPs completos).
-- [ ] Backups regulares do banco de dados PostgreSQL estão configurados.
-- [ ] Monitoramento de custos e alertas de anomalias estão ativos.
-- [ ] Testes de carga foram realizados para validar limites de throughput.
-- [ ] Equipe foi treinada sobre boas práticas de segurança e compliance.
+- Running security tests before production deploy.
+- Implementing backups and disaster recovery.
+- Training the team on security and compliance practices.
 
 ---
 
-## 📞 Contato
+## 🚫 Disclaimer
 
-Para questões de segurança críticas, **não use Issues públicas**. Entre em contato através de:
+### The author (`iamthebestts`) and contributors ARE NOT LIABLE FOR
 
-- **GitHub Security Advisory**: [Criar Advisory Privada](https://github.com/iamthebestts/UniverseLogs/security/advisories/new)
-- **Discord da Nexo+**: [https://discord.gg/EPucmXpDQR](https://discord.gg/EPucmXpDQR) (canal `#atendimento`)
+- ❌ Loss, leakage, corruption, or theft of data.
+- ❌ Financial harm (storage costs, regulatory fines, etc.).
+- ❌ Breach of Roblox policies or data protection laws.
+- ❌ Downtime, bugs, security failures, or unexpected behavior.
+- ❌ Cyber attacks due to misconfiguration or exposed credentials.
+- ❌ Misuse by third parties (exploiters, attackers, competitors).
+
+### "AS IS" Clause
+
+This software is distributed **"AS IS"**, without warranties of any kind, express or implied, including but not limited to:
+
+- Merchantability
+- Fitness for a particular purpose
+- Non-infringement
+- Security, reliability, or accuracy
+
+**You assume ALL risks associated with using this software.**
 
 ---
 
-## 📜 Licença
+## ✅ Pre-Deploy Security Checklist
 
-Este documento faz parte do projeto **UniverseLogs** e está sujeito aos termos da [Licença MIT](./LICENSE).
+Before running UniverseLogs in production, verify:
 
-**Use com sabedoria. Proteja suas credenciais. Mantenha seus usuários seguros.**
+- [ ] The module is instantiated **only in server scripts** (never in LocalScripts).
+- [ ] The **API Key** is never exposed to the client.
+- [ ] The backend **MASTER_KEY** is at least 32 random characters.
+- [ ] Rate limits are configured on the backend (`rateLimitHandler`).
+- [ ] Data retention is in place (e.g. delete logs older than 90 days).
+- [ ] Logs do not contain unconsented PII (real names, emails, full IPs).
+- [ ] Regular PostgreSQL backups are configured.
+- [ ] Cost and anomaly alerts are enabled.
+- [ ] Load tests have been run to validate throughput limits.
+- [ ] The team has been trained on security and compliance practices.
+
+---
+
+## 📞 Contact
+
+For critical security matters, **do not use public Issues**. Contact via:
+
+- **GitHub Security Advisory:** [Create private advisory](https://github.com/iamthebestts/UniverseLogs/security/advisories/new)
+- **Nexo+ Discord:** [https://discord.gg/EPucmXpDQR](https://discord.gg/EPucmXpDQR) (channel `#atendimento`)
+
+---
+
+## 📜 License
+
+This document is part of the **UniverseLogs** project and is subject to the [MIT License](./LICENSE).
+
+**Use wisely. Protect your credentials. Keep your users safe.**
 
 ---
 
 <div align="center">
-  <p><strong>Segurança não é um recurso. É uma responsabilidade.</strong></p>
+  <p><strong>Security is not a feature. It is a responsibility.</strong></p>
 </div>

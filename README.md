@@ -1,4 +1,4 @@
-# UniverseLogs: Fundação Escalável de Observabilidade
+# UniverseLogs: Scalable Observability Foundation
 
 [![CI/CD Pipeline](https://github.com/iamthebestts/UniverseLogs/actions/workflows/pipeline.yml/badge.svg)](https://github.com/iamthebestts/UniverseLogs/actions/workflows/pipeline.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -7,222 +7,230 @@
 ![Database](https://img.shields.io/badge/database-PostgreSQL-blue)
 ![ORM](https://img.shields.io/badge/orm-Drizzle-orange)
 
-O **UniverseLogs** é um projeto open-source que serve como uma **fundação robusta e escalável** para sistemas de observabilidade multi-tenant. Focado em ambientes distribuídos e jogos (como Roblox e Unity), ele demonstra padrões arquiteturais para lidar com alto volume de ingestão de logs e streaming em tempo real.
+**UniverseLogs** is an open-source project that serves as a **robust, scalable foundation** for multi-tenant observability systems. Focused on distributed environments and games (such as Roblox and Unity), it demonstrates architectural patterns for handling high-volume log ingestion and real-time streaming.
 
-Este projeto foi construído para demonstrar experiência na criação de APIs escaláveis, performáticas e resilientes. **É uma base sólida:** quem quiser pode fazer um fork, escalar, adicionar mais camadas de segurança (como criptografia no banco de dados) e transformá-lo no seu próprio produto!
+This project was built to showcase experience in creating scalable, performant, and resilient APIs. **It is a solid base:** anyone can fork it, scale it, add more security layers (e.g. database encryption), and turn it into their own product!
 
-> ⚠️ **IMPORTANTE**: Este módulo deve ser usado **exclusivamente no servidor**. Leia a [Política de Segurança](SECURITY.md) antes de usar em produção.
-
----
-
-## 🎯 Proposta e Objetivos
-
-Diferente de sistemas excessivamente complexos, o UniverseLogs foca no que importa para não gargalar sua aplicação principal: ingestão rápida e desacoplamento. 
-
-- **Arquitetura Desacoplada:** Um motor de ingestão em lote (batching) protege o banco de dados contra picos massivos de requisições.
-- **Isolamento de Tenants:** Desenvolvido nativamente para servir múltiplos projetos ("Universes") com chaves de API com hash e separação clara de dados.
-- **Sinergia em Tempo Real:** Transmissão de logs no exato momento em que chegam através de WebSockets.
-- **Evolução Aberta:** Uma base de código limpa em TypeScript (com Bun + Elysia), pronta para receber features de billing, retenção dinâmica, criptografia de ponta a ponta, etc.
-
-## 🎮 O que dá pra construir com essa base?
-
-- Painéis de acompanhamento de gameplay em tempo real.
-- Sistemas de auditoria de ações administrativas em jogos/sistemas.
-- Centralização de telemetria e análise de economia virtual.
-- Agregadores de erros e crashes distribuídos.
+> ⚠️ **IMPORTANT**: This module must be used **exclusively on the server**. Read the [Security Policy](SECURITY.md) before using in production.
 
 ---
 
-## 🏗️ Como a Arquitetura Funciona
+## 🎯 Purpose and Goals
 
-A arquitetura resolve o principal problema de APIs de log: a sobrecarga do banco de dados (IOPS). Para isso, a escrita principal é separada da persistência através de um buffer em memória.
+Unlike overly complex systems, UniverseLogs focuses on what matters so it doesn’t bottleneck your main application: fast ingestion and decoupling.
 
-1. **Gateway (Recepção):** Valida a API Key, aplica Rate Limit e aceita a requisição.
-2. **Buffer Engine (Memória):** Coloca o log em uma fila de processamento rápido. A API já responde `200 OK` para o usuário não ficar esperando.
-3. **Distribuição e Persistência:** A cada *X* segundos (ou tamanho de fila), os logs são salvos em lote (batch) no PostgreSQL e disparados simultaneamente para todos os clientes conectados via WebSocket.
+- **Decoupled Architecture:** A batch ingestion engine protects the database from massive request spikes.
+- **Tenant Isolation:** Built to serve multiple projects (“Universes”) with hashed API keys and clear data separation.
+- **Real-Time Streaming:** Logs are streamed the moment they arrive via WebSockets.
+- **Open Evolution:** A clean TypeScript codebase (Bun + Elysia) ready for billing, dynamic retention, end-to-end encryption, and more.
+
+## 🎮 What You Can Build With This Base
+
+- Real-time gameplay monitoring dashboards.
+- Audit systems for administrative actions in games/systems.
+- Centralized telemetry and virtual economy analysis.
+- Aggregators for distributed errors and crashes.
+
+---
+
+## 🏗️ How the Architecture Works
+
+The architecture addresses the main problem of log APIs: database overload (IOPS). Main writes are separated from persistence via an in-memory buffer.
+
+1. **Gateway (Reception):** Validates the API Key, applies rate limiting, and accepts the request.
+2. **Buffer Engine (Memory):** Puts the log in a fast processing queue. The API responds `200 OK` so the client doesn’t wait.
+3. **Distribution and Persistence:** Every *X* seconds (or queue size), logs are batch-written to PostgreSQL and broadcast to all clients connected via WebSocket.
 
 ```mermaid
 flowchart LR
   %% CLIENT
-  C[Clientes Distribuídos<br/>Roblox · Unity · Microsserviços]
+  C[Distributed Clients<br/>Roblox · Unity · Microservices]
 
   %% GATEWAY
-  R[Roteador de Alta Performance]
+  R[High-Performance Router]
   RL[Rate Limit]
-  AUTH{Validação de<br/>API Key}
+  AUTH{API Key<br/>Validation}
 
   %% ENGINE
-  LB[(Buffer de Logs<br/>em Memória)]
-  WS[Transmissor<br/>WebSocket]
+  LB[(In-Memory<br/>Log Buffer)]
+  WS[WebSocket<br/>Broadcaster]
 
   %% STORAGE
   DB[(PostgreSQL<br/>JSONB)]
 
   %% DASHBOARD
-  DASH[Dashboard / Consumidores]
+  DASH[Dashboard / Consumers]
 
   %% FLOW
   C --> R
   R --> RL
   RL --> AUTH
   
-  AUTH -->|Devolve 200 OK| LB
-  AUTH -->|Transmissão Ao Vivo| WS
+  AUTH -->|Return 200 OK| LB
+  AUTH -->|Live Stream| WS
   
-  LB -->|Persistência em Lote| DB
-  WS -->|Stream em Tempo Real| DASH
+  LB -->|Batch Persistence| DB
+  WS -->|Real-Time Stream| DASH
 ```
 
-### Detalhes Técnicos
+### Technical Details
 
-- **Batching Integrado:** Evita conexões e inserções desnecessárias no banco de dados agrupando operações.
-- **Performance Orientada:** Uso de tecnologias de ponta como `Bun`, `ElysiaJS` e `PostgreSQL` puro via protocolo eficiente.
-- **Logs Estruturados:** A coluna `metadata` usa `JSONB`, permitindo que os desenvolvedores injetem objetos complexos e depois filtrem ou exportem isso facilmente de acordo com a regra de negócio do seu projeto.
+- **Built-in Batching:** Reduces unnecessary database connections and inserts by grouping operations.
+- **Performance-First:** Uses technologies like `Bun`, `ElysiaJS`, and plain `PostgreSQL` over an efficient protocol.
+- **Structured Logs:** The `metadata` column uses `JSONB`, so you can store complex objects and filter or export them easily for your project’s needs.
 
 ---
 
-## 🚀 Como Rodar Localmente
+## 🚀 Running Locally
 
-Se você deseja testar a arquitetura, contribuir ou criar seu próprio fork:
+To try the architecture, contribute, or create your own fork:
 
-### Pré-requisitos
-- **Bun** (versão 1.x+)
+### Prerequisites
+- **Bun** (1.x+)
 - **PostgreSQL 15+**
 
-### Configurando
+### Setup
 ```bash
 git clone https://github.com/iamthebestts/UniverseLogs
 cd UniverseLogs
 bun install
 cp .env.example .env
 ```
-> Configure a sua `DATABASE_URL` e uma `MASTER_KEY` super secreta no seu `.env`.
+> Set your `DATABASE_URL` and a secret `MASTER_KEY` in `.env`.
 
-### Rodando
+### Run
 ```bash
-bun run dev   # Modo de desenvolvimento (logs formatados no console)
-bun run start # Modo de produção (performance em primeiro lugar)
+bun run dev   # Development (formatted logs in console)
+bun run start # Production (performance first)
 ```
 
 ---
 
-## 📖 Testando a API
+## 📖 Testing the API
 
-1. **Crie um Universo e pegue a Chave (Ação de Admin):**
+1. **Create a Universe and get the key (admin action):**
    ```bash
    curl -X POST http://localhost:3000/internal/keys/register \
      -H "Content-Type: application/json" \
-     -H "x-master-key: SUA_MASTER_KEY_DO_ENV" \
+     -H "x-master-key: YOUR_MASTER_KEY_FROM_ENV" \
      -d '{"universeId": "123456"}'
    ```
-2. **Faça o "Jogo" enviar um Log:**
+2. **Send a log from your “game”:**
    ```bash
    curl -X POST http://localhost:3000/api/logs \
-     -H "x-api-key: SUA_CHAVE_GERADA_AQUI" \
-     -d '{"level": "info", "message": "Carro explodiu no mapa", "metadata": {"x": 10, "y": 20}}'
+     -H "x-api-key: YOUR_GENERATED_KEY_HERE" \
+     -d '{"level": "info", "message": "Car exploded on map", "metadata": {"x": 10, "y": 20}}'
    ```
 
 ---
 
-## 📦 SDKs e Clientes Oficiais
+## 📦 Official SDKs and Clients
 
-Este projeto oferece SDKs oficiais para facilitar a integração com diferentes plataformas e linguagens. Atualmente disponível:
+This project provides official SDKs to integrate with different platforms and languages. Currently available:
 
 ### 🎮 Roblox (Luau)
 
-Um cliente completo e resiliente para jogos Roblox.
+A full, resilient client for Roblox games.
 
-- **Localização**: [`/sdk/roblox/`](./sdk/roblox/)
-- **Documentação**: [📖 Guia Completo do Cliente Roblox](./sdk/roblox/docs.md)
-- **Features**:
-  - ⚡ Buffer em memória com envio em lote (batching)
-  - 🛡️ Fallback automático com DataStore em caso de falha
-  - 🚫 Sistema anti-spam (throttling) integrado
-  - 🔍 Sanitização automática de tipos Roblox (Vector3, CFrame, etc.)
-  - 📊 Captura automática de erros (opcional)
+- **Location:** [`/sdk/roblox/`](./sdk/roblox/)
+- **Documentation:** [📖 Roblox Client Guide](./sdk/roblox/docs.md)
+- **Features:**
+  - ⚡ In-memory buffer with batch sending (batching)
+  - 🛡️ Automatic DataStore fallback on failure
+  - 🚫 Built-in anti-spam (throttling)
+  - 🔍 Automatic sanitization of Roblox types (Vector3, CFrame, etc.)
+  - 📊 Optional automatic error capture
 
-**Instalação rápida:**
+**Quick setup:**
 ```lua
 local ServerStorage = game:GetService("ServerStorage")
 local UniverseLogs = require(ServerStorage.UniverseLogs)
 
-local ul = UniverseLogs.new("sua-api-key", {
-    baseUrl = "https://sua-api.com"
+local ul = UniverseLogs.new("your-api-key", {
+    baseUrl = "https://your-api.com"
 })
 
 ul:init()
-ul:info("Servidor iniciado!", { topic = "boot" })
+ul:info("Server started!", { topic = "boot" })
 ```
 
-### 🔮 Futuras Linguagens (Em Planejamento)
+### 🔮 Planned Languages
 
-Com o tempo, pretendemos adicionar SDKs oficiais para:
+Over time we plan to add official SDKs for:
 
-- 🐍 **Python** — Para backends, scripts de automação e data science
-- 🟨 **JavaScript/TypeScript** — Para Node.js, Deno e Bun
-- 🦀 **Rust** — Para aplicações de alta performance
-- ☕ **Java** — Para servidores Minecraft (Spigot/Paper) e aplicações enterprise
+- 🐍 **Python** — Backends, automation scripts, data science
+- 🟨 **JavaScript/TypeScript** — Node.js, Deno, Bun
+- 🦀 **Rust** — High-performance applications
+- ☕ **Java** — Minecraft servers (Spigot/Paper) and enterprise apps
 
-**Contribuições são bem-vindas!** Se você desenvolver um cliente para outra linguagem, abra uma PR para adicioná-lo à pasta `/sdk/`.
-
----
-
-## 🗺️ O que pode ser adicionado (Ideias para Fork)
-
-Como dito, esta é uma fundação excelente. Alguns caminhos naturais de evolução para quem deseja escalar ainda mais essa base:
-
-- [ ] Criptografia de banco de dados (At-Rest Encryption) para dados sensíveis ou PII.
-- [ ] Implementação de filas externas (como Kafka, Redis Streams ou RabbitMQ) caso precise distribuir os "workers" em vários containers.
-- [ ] Rotinas (CRON jobs) automáticas para limpeza de logs antigos (Retention policies).
-- [ ] Sistema de Billing (Stripe) para comercializar infraestrutura SaaS.
+**Contributions welcome!** If you build a client for another language, open a PR to add it under `/sdk/`.
 
 ---
 
-## 📚 Documentações Técnicas
+## 🗺️ Possible Additions (Fork Ideas)
 
-- 🌐 **[Referência da API REST](./docs/rotas.md)**
-- 🔌 **[Documentação do WebSocket](./docs/websocket.md)**
-- 🚀 **[Guia de Deploy (Docker/Discloud)](./docs/deploy.md)**
-- 📖 **Swagger/OpenAPI:** Disponível acessando `/docs` no navegador quando estiver rodando no modo `dev`.
+As mentioned, this is a strong foundation. Natural next steps for scaling it further:
+
+- [ ] Database encryption (at-rest) for sensitive or PII data.
+- [ ] External queues (e.g. Kafka, Redis Streams, RabbitMQ) to distribute workers across containers.
+- [ ] Automated retention (CRON) for cleaning old logs.
+- [ ] Billing (e.g. Stripe) for SaaS infrastructure.
 
 ---
 
-## 🧪 Qualidade do Código
+## 📚 Technical Documentation
 
-A base conta com testes unitários, de integração (E2E) com banco de dados em memória e rate limiting simulado, para que qualquer modificação continue provando a resiliência do sistema.
+- 🌐 **[REST API Reference](./docs/routes.md)**
+- 🔌 **[WebSocket Documentation](./docs/websocket.md)**
+- 🚀 **[Deploy Guide (Docker/Discloud)](./docs/deploy.md)**
+- 📖 **Swagger/OpenAPI:** Available at `/docs` in the browser when running in `dev` mode.
+
+**Documentação em português (pt-BR):** [README](pt-br/README.md) · [Índice da documentação técnica](docs/pt-br/README.md)
+
+---
+
+## 🧪 Code Quality
+
+The project includes unit tests and integration (E2E) tests with an in-memory database and simulated rate limiting.
 
 ```bash
-bun run test:e2e      # Fluxos de Integração Reais
-bun run test:coverage # Relatório de Testes
+bun run test          # Unit tests
+bun run test:coverage # Unit tests with coverage report
+bun run test:e2e      # E2E integration flows (see Test environment below)
 ```
 
----
+### Test environment
 
-## 🔒 Segurança e Responsabilidade
-
-Este projeto lida com operações sensíveis de leitura/escrita em banco de dados. Antes de usar em produção, **leia atentamente nossa [Política de Segurança](SECURITY.md)**.
-
-**Principais pontos:**
-- ✅ Use apenas em `ServerScriptService` ou `ServerStorage`
-- ❌ Nunca exponha API Keys ao cliente
-- ⚖️ Você é responsável pela conformidade legal (LGPD, GDPR, COPPA)
-- 💰 Monitore custos de armazenamento e tráfego
-
-**[📖 Leia a Política Completa →](SECURITY.md)**
+- **Unit tests** (`test`, `test:coverage`): run in any environment; no `NODE_ENV` requirement.
+- **E2E tests** (`test:e2e`): use `NODE_ENV=test` and load `.env.test`. The script is written for Unix-like shells (e.g. Linux, macOS, WSL). On **Windows (PowerShell/CMD)** the `NODE_ENV=test` prefix does not work as-is — run E2E in **WSL**, **Git Bash**, or **CI** (Linux). Alternatively set `NODE_ENV=test` in your shell before running `bun run test:e2e`, or use a cross-platform env helper (e.g. `cross-env`) if you add it to the project.
 
 ---
 
-## 📄 Licença
+## 🔒 Security and Responsibility
 
-Distribuído sob a Licença MIT. Sinta-se livre para copiar, modificar, fechar código ou usar comercialmente. (Veja o arquivo `LICENSE` para mais informações).
+This project handles sensitive database read/write operations. Before using in production, **read our [Security Policy](SECURITY.md)**.
+
+**Main points:**
+- ✅ Use only in `ServerScriptService` or `ServerStorage`
+- ❌ Never expose API keys to the client
+- ⚖️ You are responsible for legal compliance (LGPD, GDPR, COPPA)
+- 💰 Monitor storage and traffic costs
+
+**[📖 Read the full policy →](SECURITY.md)**
 
 ---
 
-Feito com 💡 por **[iamthebestts](https://github.com/iamthebestts)**. Serve como uma demonstração da minha experiência em construir serviços modernos de ponta a ponta.
+## 📄 License
+
+Distributed under the MIT License. You may copy, modify, close the source, or use it commercially. (See the `LICENSE` file for details.)
+
+---
+
+Made with 💡 by **[iamthebestts](https://github.com/iamthebestts)**. This project demonstrates experience building modern end-to-end services.
 
 <div align="center">
   <img src="./images/Nexo.png" alt="Nexo+ Logo" width="100" />
-  <h3>Construindo APIs e Bots de Sucesso</h3>
-  <p>Na <strong>Nexo+</strong>, levamos soluções para fora dos limites convencionais! Desenvolvemos APIs de back-end dedicadas, integração de sistemas robustos e bots sob medida para automatizar e conectar seu ecossistema ao seu público.</p>
-  <p><a href="https://discord.gg/EPucmXpDQR">Fale conosco no Discord da Nexo+</a></p>
+  <h3>Building APIs and Bots That Succeed</h3>
+  <p>At <strong>Nexo+</strong>, we push solutions beyond conventional limits. We build dedicated back-end APIs, robust system integration, and custom bots to automate and connect your ecosystem with your audience.</p>
+  <p><a href="https://discord.gg/EPucmXpDQR">Contact us on Nexo+ Discord</a></p>
 </div>

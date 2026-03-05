@@ -1,133 +1,150 @@
 # AGENTS.MD
 
-## 1. Visão Geral do Projeto
-**Nome:** `UniverseLogs`
-**Descrição:** Serviço de ingestão e consulta de logs estruturados com isolamento multi-tenant. O sistema é focado em alta performance para atender jogos Roblox (identificados por UniverseId) e outras aplicações distribuídas.
-**Objetivo Principal:** Centralizar observabilidade garantindo segurança por isolamento (via API Keys) e flexibilidade de esquema (via JSONB).
+Central document for project conventions and rules. **Read before changing code, documentation, tests, or configuration.** Cursor uses this file via `.cursorrules`.
 
 ---
 
-## 2. Stack Tecnológica
-- **Runtime:** Bun (Performance e DX)
-- **Linguagem:** TypeScript
-- **Framework HTTP:** ElysiaJS (Alta performance, Type-safety)
-- **Banco de Dados:** PostgreSQL
-- **ORM:** Drizzle ORM
-- **Testes:** Vitest + @vitest/ui + @vitest/coverage-v8
-- **Validação:** Zod / TypeBox (via Elysia `t`)
+## 1. Project Overview
+
+| Field | Value |
+|-------|--------|
+| **Name** | UniverseLogs |
+| **Description** | Multi-tenant log ingestion and query service. Focused on high performance for Roblox games (UniverseId) and distributed applications. |
+| **Goal** | Centralize observability with API Key isolation and flexible schema (JSONB). |
 
 ---
 
-## 3. Estrutura e Padrões de Código
+## 2. Tech Stack
 
-### 3.1 Organização de Diretórios
+| Area | Technology |
+|------|------------|
+| Runtime | Bun |
+| Language | TypeScript |
+| HTTP | ElysiaJS |
+| Database | PostgreSQL |
+| ORM | Drizzle ORM |
+| Tests | Vitest + @vitest/ui + @vitest/coverage-v8 |
+| Validation | Zod / TypeBox (Elysia `t`) |
+
+---
+
+## 3. Code Structure
+
+### 3.1 Directories
+
 ```
 src/
-├── core/           # Lógica central e tipos básicos
-├── db/             # Configuração do Drizzle e Schemas
-│   └── schema.ts   # Definição das tabelas
-├── services/       # Lógica de negócio (Desacoplada do HTTP)
-└── server/         # Camada HTTP (Elysia)
-    ├── routes/     # Definição de endpoints (.route.ts)
-    ├── handlers/   # Middlewares e utilitários (Rate Limit, Error Handler)
-    ├── auth/       # Estratégias de autenticação
-    └── server.ts   # Entrypoint do servidor e registro dinâmico
+├── core/           # Core logic and base types
+├── db/             # Drizzle and schemas (schema.ts)
+├── services/       # Business logic and DB access (HTTP-agnostic)
+└── server/         # HTTP layer (Elysia)
+    ├── routes/     # Endpoints (*.route.ts)
+    ├── handlers/   # Rate limit, error handler, etc.
+    ├── auth/       # Authentication
+    └── server.ts   # Entrypoint and dynamic route loading
 ```
 
-### 3.2 Criação e Registro de Rotas (Padrão Proxy)
-O projeto usa um sistema de carregamento dinâmico de rotas em `src/server/server.ts`.
-**Como funciona:**
-1. Crie um arquivo em `src/server/routes/` com sufixo `.route.ts`.
-2. Exporte uma função `default` que recebe `app`.
-3. Retorne `"api"` (para prefixo `/api`) ou `"internal"` (para prefixo `/internal`).
+### 3.2 Routes (proxy pattern)
 
-**Exemplo:**
-```typescript
-import { t } from "elysia";
-export default function registerMyRoute(app: Elysia) {
-  app.get("/hello", () => ({ hello: "world" }), {
-    // Opção customizada processada pelo loader
-    authRequired: true 
-  });
-  
-  return "api"; // Gera rota: GET /api/hello
-}
-```
-**Importante:** O `app` passado é um Proxy que intercepta as definições para aplicar autenticação automática e prefixos.
+- File in `src/server/routes/` with suffix `.route.ts`.
+- Export `default(app)` and return `"api"` (prefix `/api`) or `"internal"` (prefix `/internal`).
+- The `app` is a Proxy that applies auth and prefixes; use `authRequired: true` when needed.
+- **Route:** parsing, validation (`t`), response. **Service:** business logic and DB (no Elysia).
 
-### 3.3 Handlers e Services
-- **Services (`src/services`):** Contêm a regra de negócio e chamadas ao banco. Devem ser agnósticos ao framework HTTP.
-- **Routes (`src/server/routes`):** Lidam com parsing de requisição, validação (usando `t` do Elysia) e chamam os services.
+### 3.3 Database (Drizzle)
+
+- **Tables:** `games` (tenants), `api_keys`, `logs` (with `metadata` jsonb).
+- **IDs:** `universe_id` and `place_id` always `bigint` (Roblox).
+- In log queries, **always** filter by `universe_id` first. Avoid dynamic SQL; use Drizzle/parameters.
 
 ---
 
-## 4. Banco de Dados (Drizzle ORM)
+## 4. Authentication and Security
 
-### 4.1 Schema (`src/db/schema.ts`)
-- **`games`**: Catálogo de tenants.
-  - `universe_id` (PK, bigint): ID do jogo Roblox.
-- **`api_keys`**: Credenciais de acesso.
-  - `key`: Chave única.
-  - `universe_id`: Vincula a chave a um único tenant.
-- **`logs`**: Dados de observabilidade.
-  - `universe_id`: Chave de particionamento lógico.
-  - `metadata` (jsonb): Flexibilidade para campos extras (`place_id`, `job_id`).
-  - Índices em `universe_id` e `timestamp`.
-
-### 4.2 Diretrizes de Uso
-- Sempre use `bigint` para `universe_id` e `place_id` (compatibilidade Roblox).
-- Para consultas de logs, **SEMPRE** filtre por `universe_id` primeiro.
+- **API:** header `X-API-Key`; tenant inferred from key (client **never** sends `universe_id`).
+- **Internal:** `X-Master-Key` for `/internal/*` routes.
+- Never expose keys, `MASTER_KEY`, or secrets in code, logs, or responses.
+- Isolation: all tenant queries filtered by `universe_id` (resolved via API Key).
+- Production: no stack traces or internal details; global ErrorHandler with standardized responses.
 
 ---
 
-## 5. Autenticação e Segurança
-- **Estratégia:** API Key no header (ex: `X-API-Key` ou customizável).
-- **Fluxo:**
-  1. O middleware global (`server.ts`) intercepta rotas com `authRequired: true`.
-  2. Valida a chave no banco.
-  3. Se válida, o contexto da rota não recebe o tenant explicitamente, mas o service pode re-validar ou obter o ID se necessário (verifique `src/services/api-keys.service.ts`).
-- **Isolamento:** O cliente nunca envia o `universe_id`. O sistema deduz quem é o tenant pela chave.
+## 5. Documentation and i18n
+
+- **Default language (root):** en-US. Main docs in English at repo root and in `docs/`.
+- **Pt-BR:** kept in dedicated folders; do not overwrite en-US at root.
+
+| Location | Content |
+|----------|---------|
+| `README.md`, `SECURITY.md` | en-US (root) |
+| `pt-br/` | README and SECURITY in pt-BR |
+| `docs/` | routes, websocket, deploy, operations (en-US) |
+| `docs/pt-br/` | Same docs in pt-BR (rotas, websocket, deploy, operations) |
+| `.github/ISSUE_TEMPLATE/` | `bug_report.md`, `feature_request.md` (en-US) |
+| `.github/ISSUE_TEMPLATE/pt-br/` | Templates in pt-BR |
+| `sdk/roblox/docs.md` | en-US |
+| `sdk/roblox/pt-br/docs.md` | pt-BR |
+
+**Update when changing contract or routes:** `docs/routes.md`, `docs/websocket.md`, `docs/operations.md`; deploy in `docs/deploy.md`.
 
 ---
 
-## 6. Estado Atual e Qualidade (v1.0.50)
-- **Status dos Testes:** ✅ Production Ready (100% Pass Rate).
-- **Cobertura:** Suite robusta cobrindo `Rate Limit`, `Error Handler` e `Services`.
+## 6. Editor and Tooling
+
+- **.vscode/settings.json:** shared formatting and lint (e.g. markdown with markdownlint).
+- Keep formatter/linter config in the repo for consistency; do not commit local paths or secrets.
 
 ---
 
-## 7. Regras de Desenvolvimento (Diretrizes para a IA)
+## 7. Rules by Area (for AI and developers)
 
-### 7.1 Segurança
-- **Nunca** exponha chaves, `MASTER_KEY` ou segredos em código, logs ou respostas.
-- **Isolamento de tenant:** Todas as queries que tocam dados de tenant devem filtrar por `universe_id` (resolvido via API Key). O cliente nunca envia `universe_id`.
-- Não exponha stack traces ou detalhes internos em produção; use um ErrorHandler global com respostas padronizadas.
+### 7.1 Code
 
-### 7.2 Padrões de Código
-- **Runtime/scripts:** Use **Bun** (não Node para scripts do projeto).
-- **Rotas:** Arquivo `*.route.ts` em `src/server/routes/`, export `default(app)`, retorne `"api"` ou `"internal"`. Use validação Elysia (`t`) em todo body/query/params.
-- **Separação:** Route = HTTP (parsing, validação, resposta); Service = lógica de negócio e acesso ao banco. Services não dependem de Elysia.
-- **Configuração:** Sempre use `env` ou constantes (ex: `env.PORT`, `env.USE_AUTH`); nada hardcoded sensível ou variável por ambiente.
-- **Tipos:** `universe_id` e `place_id` são `bigint` (compatibilidade Roblox). Mantenha tipagem consistente.
+- **Runtime/scripts:** Bun (not Node).
+- **Routes:** `*.route.ts`, `default(app)`, return `"api"` or `"internal"`. Elysia validation (`t`) on body/query/params.
+- **Config:** use `env` or constants; no sensitive or environment-specific values hardcoded.
+- **Types:** `universe_id` and `place_id` as `bigint`.
 
-### 7.3 Banco de Dados
-- **Queries:** Sempre filtrar por `universe_id` primeiro; usar `bigint` para IDs de jogos/lugares.
-- **Segurança:** Evitar queries dinâmicas com concatenação de entrada (prevenir SQL Injection); preferir Drizzle/parâmetros.
-- **Migrações:** Alterações de schema via Drizzle; documentar em `docs/deploy.md` quem roda migrações em cada ambiente.
+### 7.2 Database
 
-### 7.4 Testes e Qualidade
-- Antes de considerar uma alteração concluída: rodar `bun run check` e `bun run type-check`; testes unitários e, se aplicável, E2E.
-- Não quebrar autenticação, rate limit ou esquema do banco sem testes que cubram o fluxo.
-- Novos endpoints ou mudanças de contrato: atualizar ou adicionar testes e, se relevante, `docs/rotas.md`.
+- Filter by `universe_id` first; use `bigint` for Roblox IDs.
+- Migrations via Drizzle; document in `docs/deploy.md` who runs migrations in each environment.
+- Rollback: avoid destructive migrations without a plan.
 
-### 7.5 Documentação e Deploy
-- **Rotas:** Novas rotas ou mudanças de contrato devem ser refletidas em `docs/rotas.md`. WebSocket em `docs/websocket.md`, operações em `docs/operations.md`.
-- **Deploy:** Variáveis críticas (`USE_AUTH`, `MASTER_KEY`, `PORT`, rate limits) centralizadas; alterações que afetem deploy documentadas. Garantir rollback seguro (sem migrações destrutivas sem plano).
-- **Commits:** Mensagens claras e convencionais (ex: `feat: ...`, `fix: ...`); relacionar a issues quando possível.
+### 7.3 Tests
 
-### 7.6 Comportamento da IA
-- Manter compatibilidade com Bun, ElysiaJS e Drizzle ORM.
-- Não inventar endpoints, tenants ou dados fictícios fora do escopo.
-- Sugerir melhorias de performance, segurança e manutenção quando relevante; refatorar handlers para consistência e reuso.
-- Fornecer exemplos/snippets apenas quando melhorar clareza (ex: novo endpoint ou fluxo).
-- Ao alterar estrutura do projeto ou convenções, atualizar este AGENTS.MD para refletir as regras atuais.
+- Before considering done: run `bun run check` and `bun run type-check`; unit tests (and E2E if applicable).
+- New endpoints or contract changes: add/update tests and, if relevant, `docs/routes.md`.
+- Do not break auth, rate limit, or schema without test coverage.
+
+### 7.4 Documentation
+
+- New routes or contract changes → `docs/routes.md`. WebSocket → `docs/websocket.md`. Operations → `docs/operations.md`.
+- Deploy and critical variables → `docs/deploy.md`.
+
+### 7.5 Deploy and Ops
+
+- Critical variables: `USE_AUTH`, `MASTER_KEY`, `PORT`, rate limits; centralized and documented.
+- Changes that affect deploy must be reflected in documentation.
+
+### 7.6 Commits and Conventions
+
+- Clear, conventional messages (e.g. `feat:`, `fix:`, `docs:`); reference issues when possible.
+
+### 7.7 AI Behavior
+
+- Maintain compatibility with Bun, ElysiaJS, and Drizzle.
+- Do not invent endpoints, tenants, or data out of scope.
+- Suggest performance, security, and maintenance improvements when relevant.
+- When changing project structure or conventions, update this AGENTS.MD (and `.cursorrules` if it exists).
+
+---
+
+## 8. Current State (reference)
+
+- **Version:** See `package.json` (used at runtime for health/docs).
+- **Tests:** Production Ready (100% pass rate); coverage on Rate Limit, Error Handler, and Services.
+
+---
+
+*Cursor entry point: `.cursorrules` points to this file.*

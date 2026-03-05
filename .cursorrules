@@ -1,0 +1,7 @@
+# Cursor rules — UniverseLogs
+
+Follow the project rules and conventions defined in **AGENTS.MD** at the repository root.
+
+- Read `AGENTS.MD` before changing code, documentation, tests, or configuration.
+- Apply its rules for: structure, routes, database, auth, security, documentation (en-US + pt-BR), tooling, tests, and deploy.
+- When updating project structure or conventions, update `AGENTS.MD` (and this file if needed).

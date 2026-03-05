@@ -1,8 +1,8 @@
-# Documentação — UniverseLogs
+# Documentation — UniverseLogs
 
-| Documento | Conteúdo |
-|-----------|----------|
-| [rotas.md](./rotas.md) | Referência de todas as rotas em `src/server/routes/` (API e internal) |
-| [websocket.md](./websocket.md) | **Realtime:** WebSocket em `/realtime` — autenticação, comandos (PING, QUERY_LOGS, SEND_LOG) e eventos em tempo real |
-| [deploy.md](./deploy.md) | Deploy (Docker, Discloud) e **quem roda as migrações** |
-| [operations.md](./operations.md) | Operações, monitoramento, métricas, benchmarks e runbook |
+| Document | Content |
+|----------|---------|
+| [routes.md](./routes.md) | Reference for all routes in `src/server/routes/` (API and internal) |
+| [websocket.md](./websocket.md) | **Realtime:** WebSocket at `/realtime` — authentication, commands (PING, QUERY_LOGS, SEND_LOG), and real-time events |
+| [deploy.md](./deploy.md) | Deploy (Docker, Discloud) and **who runs migrations** |
+| [operations.md](./operations.md) | Operations, monitoring, metrics, benchmarks, and runbook |
