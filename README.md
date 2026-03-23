@@ -223,14 +223,3 @@ This project handles sensitive database read/write operations. Before using in p
 ## 📄 License
 
 Distributed under the MIT License. You may copy, modify, close the source, or use it commercially. (See the `LICENSE` file for details.)
-
----
-
-Made with 💡 by **[iamthebestts](https://github.com/iamthebestts)**. This project demonstrates experience building modern end-to-end services.
-
-<div align="center">
-  <img src="./images/Nexo.png" alt="Nexo+ Logo" width="100" />
-  <h3>Building APIs and Bots That Succeed</h3>
-  <p>At <strong>Nexo+</strong>, we push solutions beyond conventional limits. We build dedicated back-end APIs, robust system integration, and custom bots to automate and connect your ecosystem with your audience.</p>
-  <p><a href="https://discord.gg/EPucmXpDQR">Contact us on Nexo+ Discord</a></p>
-</div>
